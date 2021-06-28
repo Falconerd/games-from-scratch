@@ -43,10 +43,10 @@ f32 fdist(f32 a, f32 b) {
 
 static u32 collision_direction(Body *fixed, Body *unfixed) {
 	vec2 velocity = {unfixed->velocity[0], unfixed->velocity[1]};
-	vec2 f_min = {fixed->aabb.min[0], fixed->aabb.min[1]};
-	vec2 f_max = {fixed->aabb.max[0], fixed->aabb.max[1]};
-	vec2 u_min = {unfixed->aabb.min[0], unfixed->aabb.min[1]};
-	vec2 u_max = {unfixed->aabb.max[0], unfixed->aabb.max[1]};
+	vec2 fixed_min = {fixed->aabb.min[0], fixed->aabb.min[1]};
+	vec2 fixed_max = {fixed->aabb.max[0], fixed->aabb.max[1]};
+	vec2 unfixed_min = {unfixed->aabb.min[0], unfixed->aabb.min[1]};
+	vec2 unfixed_max = {unfixed->aabb.max[0], unfixed->aabb.max[1]};
 
 	if (velocity[0] + velocity[1] == 0)
 		return 0;
@@ -54,44 +54,45 @@ static u32 collision_direction(Body *fixed, Body *unfixed) {
 	// probably horizontal
 	if (fabs(velocity[0]) > fabs(velocity[1])) {
 		if (velocity[0] > 0) {
-			if (f_min[0] <= u_max[0] && u_min[0] < f_min[0]) {
+			if (fixed_min[0] <= unfixed_max[0] && unfixed_min[0] < fixed_min[0]) {
 				return LEFT;
 			}
 		}
 
 		if (velocity[0] < 0) {
-			if (f_max[0] >= u_min[0] && u_max[0] > f_max[0]) {
+			if (fixed_max[0] >= unfixed_min[0] && unfixed_max[0] > fixed_max[0]) {
 				return RIGHT;
 			}
 		}
 
-		if (f_max[1] >= u_min[1] && u_max[1] > f_max[1]) {
+		if (fixed_max[1] >= unfixed_min[1] && unfixed_max[1] > fixed_max[1]) {
 			return TOP;
 		}
 
-		if (u_max[1] >= f_min[1] && u_min[1] < f_min[1]) {
+		if (unfixed_max[1] >= fixed_min[1] && unfixed_min[1] < fixed_min[1]) {
 			return BOTTOM;
 		}
 	}
 
+	// probably vertical
 	if (fabs(velocity[0]) < fabs(velocity[1])) {
 		if (velocity[1] < 0) {
-			if (f_max[1] <= u_max[1] && u_max[1] > f_max[1]) {
+			if (fixed_max[1] <= unfixed_max[1] && unfixed_max[1] > fixed_max[1]) {
 				return TOP;
 			}
 		}
 
 		if (velocity[1] > 0) {
-			if (u_max[1] >= f_min[1] && u_min[1] < f_min[1]) {
+			if (unfixed_max[1] >= fixed_min[1] && unfixed_min[1] < fixed_min[1]) {
 				return BOTTOM;
 			}
 		}
 
-		if (u_max[0] >= f_min[0] && u_min[0] < f_min[0]) {
+		if (unfixed_max[0] >= fixed_min[0] && unfixed_min[0] < fixed_min[0]) {
 			return LEFT;
 		}
 
-		if (u_min[0] <= f_max[0] && u_max[0] > f_max[0]) {
+		if (unfixed_min[0] <= fixed_max[0] && unfixed_max[0] > fixed_max[0]) {
 			return RIGHT;
 		}
 	}
