@@ -4,18 +4,25 @@
 #include "shared.h"
 
 #define MAX_OBJECTS 256
-#define GRAVITY 150
+#define GRAVITY 17
+#define TERMINAL_VELOCITY 17
 
 typedef struct aabb {
 	vec2 min;
 	vec2 max;
 } AABB;
 
-typedef struct body {
+typedef struct body Body;
+typedef void (*Collision_Event)(Body* self, Body *other, DIRECTION direction);
+
+struct body {
+	u32 entity_id;
 	u8 fixed;
+	u8 collision_direction;
 	vec2 velocity;
 	AABB aabb;
-} Body;
+	Collision_Event on_collision_enter;
+};
 
 typedef struct physics_context {
 	Body bodies[MAX_OBJECTS];
@@ -24,7 +31,7 @@ typedef struct physics_context {
 
 Physics_Context *physics_setup();
 void physics_tick(f32 delta_time);
-u32 physics_create_body(vec2 position, vec2 size);
+Body *physics_create_body(vec2 position, vec2 size);
 
-#endif // src/physics_h_INCLUDED
+#endif
 

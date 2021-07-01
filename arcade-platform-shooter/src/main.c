@@ -6,87 +6,79 @@
 #include "render.h"
 #include "entity.h"
 #include "physics.h"
+#include "input.h"
 
 static f32 time_now;
 static f32 time_last_frame;
 static f32 delta_time;
+static f32 player_jump_start_y;
+static u8 player_can_extend_jump = 1;
 
-int main(void) {
-	Physics_Context *physics_context = physics_setup();
-	Render_Context *render_context = render_setup();
-	Entity_Context *entity_context = entity_setup();
+static const f32 PLAYER_MOVE_SPEED = 2.0f;
+static const f32 PLAYER_JUMP_VELOCITY = 4.5f;
+static const f32 PLAYER_JUMP_CUTOFF = 20.0f;
 
-	Entity *player = entity_create();
-	Entity *enemy1 = entity_create();
+static Physics_Context *physics_context;
+static Render_Context *render_context;
+static Entity_Context *entity_context;
+static Input_Context *input_context;
 
-	player->texture = render_create_texture("./assets/player.png");
-	player->position[0] = 100;
-	player->position[1] = 100;
-	player->size[0] = 10;
-	player->size[1] = 10;
+void player_movement(GLFWwindow *window, Entity *player, Input_Context *input_context) {
+	f32 horizontal_velocity = 0;
+	f32 vertical_velocity = player->body->velocity[1];
 
-	enemy1->texture = render_create_texture("./assets/enemy_small.png");
-	enemy1->position[0] = 40;
-	enemy1->position[1] = 40;
-	enemy1->size[0] = 7;
-	enemy1->size[1] = 7;
-
-	{
-		u32 fixed = physics_create_body((vec2){100, 40}, (vec2){WIDTH/4, 50});
-		physics_context->bodies[fixed].fixed = 1;
-		u32 x;
-
-		x = physics_create_body((vec2){10, 50}, (vec2){10, 10});
-		physics_context->bodies[x].velocity[0] = 1;
-		physics_context->bodies[x].velocity[1] = 0.2f;
-
-		x = physics_create_body((vec2){10, 40}, (vec2){10, 10});
-		physics_context->bodies[x].velocity[0] = 1;
-		physics_context->bodies[x].velocity[1] = 0.15f;
-
-		x = physics_create_body((vec2){10, 110}, (vec2){10, 15});
-		physics_context->bodies[x].velocity[0] = 0.5f;
-		physics_context->bodies[x].velocity[1] = -0.07f;
-
-		x = physics_create_body((vec2){220, 110}, (vec2){10, 15});
-		physics_context->bodies[x].velocity[0] = -0.5f;
-		physics_context->bodies[x].velocity[1] = -0.125f;
-
-		x = physics_create_body((vec2){66, 200}, (vec2){10, 10});
-		physics_context->bodies[x].velocity[0] = 0.65f;
-		physics_context->bodies[x].velocity[1] = -4;
-
-		x = physics_create_body((vec2){100, 200}, (vec2){10, 10});
-		physics_context->bodies[x].velocity[0] = 0;
-		physics_context->bodies[x].velocity[1] = -1.5f;
-
-		x = physics_create_body((vec2){200, 40}, (vec2){10, 10});
-		physics_context->bodies[x].velocity[0] = -1;
-		physics_context->bodies[x].velocity[1] = 0.15f;
-
-		x = physics_create_body((vec2){200, 50}, (vec2){10, 10});
-		physics_context->bodies[x].velocity[0] = -1;
-		physics_context->bodies[x].velocity[1] = 0.2f;
-
-		x = physics_create_body((vec2){90, 0}, (vec2){10, 10});
-		physics_context->bodies[x].velocity[0] = 0.15f;
-		physics_context->bodies[x].velocity[1] = 1;
-
-		x = physics_create_body((vec2){140, 0}, (vec2){10, 10});
-		physics_context->bodies[x].velocity[0] = 0.25f;
-		physics_context->bodies[x].velocity[1] = 1;
-
-		x = physics_create_body((vec2){200, 200}, (vec2){10, 10});
-		physics_context->bodies[x].velocity[0] = -0.25f;
-		physics_context->bodies[x].velocity[1] = -1;
-
-		x = physics_create_body((vec2){130, 200}, (vec2){10, 10});
-		physics_context->bodies[x].velocity[0] = 0.25f;
-		physics_context->bodies[x].velocity[1] = -1;
+	if (player->body->aabb.min[1] > player_jump_start_y + PLAYER_JUMP_CUTOFF) {
+			player_can_extend_jump = 0;
 	}
 
+	if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
+		horizontal_velocity += -PLAYER_MOVE_SPEED;
+	}
+	if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) {
+		horizontal_velocity += PLAYER_MOVE_SPEED;
+	}
+	if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
+		if (player->body->collision_direction == TOP) {
+			vertical_velocity = PLAYER_JUMP_VELOCITY;
+			player_jump_start_y = player->body->aabb.min[1];
+			player_can_extend_jump = 1;
+		} else if (player->body->aabb.min[1] < player_jump_start_y + PLAYER_JUMP_CUTOFF && player_can_extend_jump) {
+			vertical_velocity = PLAYER_JUMP_VELOCITY;
+		}
+	}
 
-	while(!glfwWindowShouldClose(render_context->window)) {
+	player->body->velocity[0] = horizontal_velocity;
+	player->body->velocity[1] = vertical_velocity;
+}
+
+void on_player_collide(Body *player_body, Body *other_body, DIRECTION direction) {
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	render_square(player_body->aabb.min[0], player_body->aabb.min[1], player_body->aabb.max[0] - player_body->aabb.min[0], player_body->aabb.max[1] - player_body->aabb.min[1], (vec4){1, 0, 0, 1});
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+}
+
+int main(void) {
+	physics_context = physics_setup();
+	render_context = render_setup();
+	entity_context = entity_setup();
+	input_context = input_setup();
+
+	Entity *player = entity_create(0, (vec2){-2, 0}, (vec2){14, 10}, NULL, 1);
+	{ // setup player
+		player->texture = render_create_texture("./assets/player.png");
+		player->body = physics_create_body((vec2){100, 100}, (vec2){8, 8});
+		player->body->on_collision_enter = on_player_collide;
+		player->body->entity_id = entity_context->entity_count - 1;
+	}
+
+	{ // create terrain bodies
+		Body *fixed = physics_create_body((vec2){0, 0}, (vec2){WIDTH, 20});
+		fixed->fixed = 1;
+		// fixed = physics_create_body((vec2){WIDTH - WIDTH/2.5f, 22}, (vec2){WIDTH/2.5f, 20});
+		// fixed->fixed = 1;
+	}
+
+	while (!glfwWindowShouldClose(render_context->window)) {
 		time_now = glfwGetTime();
 		delta_time = time_now - time_last_frame;
 		time_last_frame = time_now;
@@ -95,10 +87,12 @@ int main(void) {
 		glClearColor(0.1, 0.4, 0.5, 1);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		glUseProgram(render_context->shader);
-		glUniformMatrix4fv(glGetUniformLocation(render_context->shader, "projection"), 1, GL_FALSE, &render_context->projection[0][0]);
+		player_movement(render_context->window, player, input_context);
 
 		physics_tick(delta_time);
+
+		glUseProgram(render_context->shader);
+		glUniformMatrix4fv(glGetUniformLocation(render_context->shader, "projection"), 1, GL_FALSE, &render_context->projection[0][0]);
 
 		for (u32 i = 0; i < physics_context->body_count; ++i) {
 			AABB *aabb = &physics_context->bodies[i].aabb;
@@ -110,7 +104,9 @@ int main(void) {
 		for (u32 i = 0; i < entity_context->entity_count; ++i) {
 			Entity *entity = &entity_context->entities[i];
 			if (entity->texture != 0xdeadbeef) {
-				render_sprite(entity->texture, entity->position, entity->size);
+				vec3 position = { entity->body->aabb.min[0] + entity->offset[0],
+						  entity->body->aabb.min[1] + entity->offset[1], 0 };
+				render_sprite(entity->texture, position, entity->size);
 			}
 		}
 
