@@ -1,5 +1,4 @@
 #include "shared.h"
-#include "entity.h"
 
 static Entity_Context context = {0};
 
@@ -18,6 +17,8 @@ Entity *entity_create(u32 texture, vec2 position, vec2 body_size, vec2 sprite_of
 	if (entity == NULL) {
 		error_and_exit(EXIT_FAILURE, "Entity limit reached");
 	}
+
+	memset(entity, 0, sizeof(Entity));
 
 	entity->flags |= ENTITY_IS_IN_USE;
 
@@ -38,4 +39,5 @@ void entity_reset() {
 
 void entity_destroy(Entity *entity) {
 	entity->flags &= ~ENTITY_IS_IN_USE;
+	entity->body.mask = 0;
 }

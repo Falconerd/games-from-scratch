@@ -1,6 +1,4 @@
-#include "render.h"
-#include "input.h"
-#include "io.h"
+#include "shared.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "../deps/lib/stb_image.h"
 

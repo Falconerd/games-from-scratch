@@ -1,5 +1,4 @@
 #include "shared.h"
-#include "io.h"
 
 char *read_file_into_buffer(const char *path) {
 	FILE *fp = fopen(path, "rb");

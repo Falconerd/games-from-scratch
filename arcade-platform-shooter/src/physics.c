@@ -1,5 +1,4 @@
-#include "entity.h"
-#include "physics.h"
+#include "shared.h"
 
 // Shared context with entity.
 static Entity_Context *context;
@@ -20,7 +19,7 @@ static void physics_integrate(f32 delta_time) {
 			continue;
 		}
 
-		if ((body->flags & TOP) == 0) {
+		if ((body->flags & TOP) == 0 && (body->flags & BODY_IS_KINEMATIC) == 0) {
 			body->velocity[1] += -GRAVITY * delta_time;
 		}
 
@@ -116,12 +115,25 @@ static void resolve_collision(Body *a, Body *b) {
 	u8 a_is_fixed = (a->flags & BODY_IS_FIXED) != 0;
 	u8 b_is_fixed = (b->flags & BODY_IS_FIXED) != 0;
 
+	Entity *entity_a = (Entity*)a;
+	Entity *entity_b = (Entity*)b;
+
+	// Entities which are inactive cannot collide.
+	if ((entity_a->flags & ENTITY_IS_IN_USE) == 0 || (entity_b->flags & ENTITY_IS_IN_USE) == 0) {
+		return;
+	}
+
 	// Fixed objects cannot collide.
 	if (a_is_fixed && b_is_fixed) {
 		return;
 	}
 
-	if (!a_is_fixed && !b_is_fixed) {
+	// Kinematic objects cannot collide.
+	if ((a->flags & BODY_IS_KINEMATIC) != 0 && (b->flags & BODY_IS_KINEMATIC) != 0) {
+		return;
+	}
+
+	if ((!a_is_fixed && !b_is_fixed) || ((a->flags & BODY_IS_KINEMATIC) != 0 || (a->flags & BODY_IS_KINEMATIC) != 0)) {
 		if (a->on_collision) {
 			a->on_collision(a, b, 0);
 		}
@@ -129,6 +141,18 @@ static void resolve_collision(Body *a, Body *b) {
 		if (b->on_collision) {
 			b->on_collision(b, a, 0);
 		}
+	}
+
+	// Triggers cannot cause responses, but they can cause events.
+	if ((a->flags & BODY_IS_TRIGGER) != 0 || (b->flags & BODY_IS_TRIGGER) != 0) {
+		if (a->on_collision) {
+			a->on_collision(a, b, 0);
+		}
+
+		if (b->on_collision) {
+			b->on_collision(b, a, 0);
+		}
+		return;
 	}
 
 	// Different layers cannot collide.
