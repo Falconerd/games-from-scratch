@@ -28,5 +28,47 @@ typedef enum direction {
 
 void error_and_exit(i32 code, const char *message);
 
+#define MAX_ENTITIES 256
+
+typedef struct aabb {
+	vec2 min;
+	vec2 max;
+} AABB;
+
+typedef struct body Body;
+typedef void (*Collision_Event)(Body* self, Body *other, DIRECTION direction);
+
+// Use direction enum as 1,2,4,8.
+#define BODY_IS_FIXED 16
+#define BODY_IS_TRIGGER 32
+
+struct body {
+	u8 flags;
+	u8 mask;
+	vec2 velocity;
+	AABB aabb;
+	Collision_Event on_collision;
+};
+
+#define ENTITY_IS_IN_USE 1
+#define ENTITY_IS_ENEMY 2
+#define ENTITY_IS_FLIPPED 4
+
+typedef struct entity {
+	Body body;
+	u8 max_health;
+	u8 health;
+	u8 flags;
+	u32 texture;
+	vec2 sprite_offset;
+	vec2 sprite_size;
+} Entity;
+
+typedef struct entity_context {
+	Entity entities[MAX_ENTITIES];
+} Entity_Context;
+
+void physics_reset();
+
 #endif
 

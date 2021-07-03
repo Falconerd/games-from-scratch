@@ -1,21 +1,26 @@
+#include "entity.h"
 #include "physics.h"
 
-static Physics_Context context = {0};
-static Body *body_ptrs[MAX_OBJECTS] = {0};
-static vec2 last_positions[MAX_OBJECTS] = {0};
+// Shared context with entity.
+static Entity_Context *context;
+static Body *body_ptrs[MAX_ENTITIES] = {0};
 
 f32 squared_distance(vec2 a, vec2 b) {
 	return b[1] * b[1] - a[1] * a[1] + b[0] * b[0] - a[0] * a[0];
 }
 
 static void physics_integrate(f32 delta_time) {
-	for (u32 i = 0; i < context.body_count; ++i) {
-		Body *body = &context.bodies[i];
-		if (body->is_fixed) {
+	for (u32 i = 0; i < MAX_ENTITIES; ++i) {
+		Entity *entity = &context->entities[i];
+		if ((entity->flags & ENTITY_IS_IN_USE) == 0) {
+			continue;
+		}
+		Body *body = &entity->body;
+		if ((body->flags & BODY_IS_FIXED) != 0) {
 			continue;
 		}
 
-		if ((body->collision_direction & TOP) == 0) {
+		if ((body->flags & TOP) == 0) {
 			body->velocity[1] += -GRAVITY * delta_time;
 		}
 
@@ -108,18 +113,21 @@ static u32 collision_direction(Body *fixed, Body *unfixed) {
 }
 
 static void resolve_collision(Body *a, Body *b) {
+	u8 a_is_fixed = (a->flags & BODY_IS_FIXED) != 0;
+	u8 b_is_fixed = (b->flags & BODY_IS_FIXED) != 0;
+
 	// Fixed objects cannot collide.
-	if (a->is_fixed && b->is_fixed) {
+	if (a_is_fixed && b_is_fixed) {
 		return;
 	}
 
-	if (!a->is_fixed && !b->is_fixed) {
-		if (a->on_collision_enter) {
-			a->on_collision_enter(a, b, 0);
+	if (!a_is_fixed && !b_is_fixed) {
+		if (a->on_collision) {
+			a->on_collision(a, b, 0);
 		}
 
-		if (b->on_collision_enter) {
-			b->on_collision_enter(b, a, 0);
+		if (b->on_collision) {
+			b->on_collision(b, a, 0);
 		}
 	}
 
@@ -128,10 +136,10 @@ static void resolve_collision(Body *a, Body *b) {
 		return;
 	}
 
-	if (a->is_fixed || b->is_fixed) {
+	if (a_is_fixed || b_is_fixed) {
 		Body *fixed = a;
 		Body *unfixed = b;
-		if (b->is_fixed) {
+		if (b_is_fixed) {
 			fixed = b;
 			unfixed = a;
 		}
@@ -141,14 +149,14 @@ static void resolve_collision(Body *a, Body *b) {
 
 		u32 direction = collision_direction(fixed, unfixed);
 
-		unfixed->collision_direction |= direction;
+		unfixed->flags |= direction;
 
-		if (a->on_collision_enter) {
-			a->on_collision_enter(a, b, direction);
+		if (a->on_collision) {
+			a->on_collision(a, b, direction);
 		}
 
-		if (b->on_collision_enter) {
-			b->on_collision_enter(b, a, direction);
+		if (b->on_collision) {
+			b->on_collision(b, a, direction);
 		}
 
 		switch (direction) {
@@ -181,14 +189,15 @@ static void resolve_collision(Body *a, Body *b) {
 }
 
 static void physics_resolve_collisions() {
-	qsort(body_ptrs, context.body_count, sizeof(Body*), x_axis_comparator);
+	qsort(body_ptrs, MAX_ENTITIES, sizeof(Body*), x_axis_comparator);
 
-	for (u32 i = 0; i < context.body_count; ++i) {
-		context.bodies[i].collision_direction = 0;
+	// Disable collision direction.
+	for (u32 i = 0; i < MAX_ENTITIES; ++i) {
+		context->entities[i].body.flags &= ~0xf;
 	}
 
-	for (u32 i = 0; i < context.body_count; ++i) {
-		for (u32 j = i + 1; j < context.body_count; ++j) {
+	for (u32 i = 0; i < MAX_ENTITIES; ++i) {
+		for (u32 j = i + 1; j < MAX_ENTITIES; ++j) {
 			if (body_ptrs[j]->aabb.min[0] > body_ptrs[i]->aabb.max[0])
 				break;
 			if (aabb_overlap(body_ptrs[i]->aabb, body_ptrs[j]->aabb)) {
@@ -198,36 +207,18 @@ static void physics_resolve_collisions() {
 	}
 }
 
-Physics_Context *physics_setup() {
-	for (u32 i = 0; i < MAX_OBJECTS; ++i) {
-		body_ptrs[i] = &context.bodies[i];
+void physics_reset() {
+	for (u32 i = 0; i < MAX_ENTITIES; ++i) {
+		body_ptrs[i] = &context->entities[i].body;
 	}
+}
 
-	return &context;
+void physics_setup(Entity_Context *entity_context) {
+	context = entity_context;
+	physics_reset();
 }
 
 void physics_tick(f32 delta_time) {
 	physics_integrate(delta_time);
 	physics_resolve_collisions();
-}
-
-Body *physics_create_body(vec2 position, vec2 size) {
-	if (context.body_count == MAX_OBJECTS) {
-		error_and_exit(EXIT_FAILURE, "Body limit reached");
-	}
-	Body *body = &context.bodies[context.body_count++];
-	body->aabb.min[0] = position[0];
-	body->aabb.min[1] = position[1];
-	body->aabb.max[0] = position[0] + size[0];
-	body->aabb.max[1] = position[1] + size[1];
-	return body;
-}
-
-void physics_reset() {
-	memset(body_ptrs, 0, MAX_OBJECTS * sizeof(Body*));
-	memset(context.bodies, 0, MAX_OBJECTS * sizeof(Body));
-	context.body_count = 0;
-	for (u32 i = 0; i < MAX_OBJECTS; ++i) {
-		body_ptrs[i] = &context.bodies[i];
-	}
 }
