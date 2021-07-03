@@ -43,10 +43,13 @@ u32 shader_setup(const char *vert_path, const char *frag_path) {
 		error_and_exit(-1, log);
 	}
 
+	free(vertex_source);
+	free(fragment_source);
+
 	return shader;
 }
 
-static i32 window_setup() {
+static i32 window_setup(const char *title) {
 	glfwSetErrorCallback(error_and_exit);
 	if (!glfwInit()) {
 		error_and_exit(-1, "Failed to init GLFW");
@@ -55,7 +58,7 @@ static i32 window_setup() {
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 
-	context.window = glfwCreateWindow(WIDTH * SCALE, HEIGHT * SCALE, "Puzzle game", NULL, NULL);
+	context.window = glfwCreateWindow(WIDTH * SCALE, HEIGHT * SCALE, title, NULL, NULL);
 	if (!context.window) {
 		error_and_exit(-1, "Failed to create window");
 	}
@@ -89,12 +92,12 @@ void render_square(f32 x, f32 y, f32 width, f32 height, vec4 color) {
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
-void render_sprite(u32 texture, vec3 position, vec2 size) {
+void render_sprite(u32 texture, vec3 position, vec2 size, u8 flipped) {
 	mat4x4 model;
 	mat4x4_identity(model);
 
 	mat4x4_translate(model, position[0] + size[0] * 0.5f, position[1] + size[1] * 0.5f, 0.0f);
-	mat4x4_scale_aniso(model, model, size[0], size[1], 1.0f);
+	mat4x4_scale_aniso(model, model, flipped ? -size[0] : size[0], size[1], 1.0f);
 
 	glUniformMatrix4fv(glGetUniformLocation(context.shader, "model"), 1, GL_FALSE, &model[0][0]);
 	glUniform4fv(glGetUniformLocation(context.shader, "color"), 1, (vec4){1.0f, 1.0f, 1.0f, 1.0f});
@@ -126,8 +129,8 @@ u32 render_create_texture(const char *path) {
 	return texture;
 }
 
-Render_Context *render_setup() {
-	window_setup();
+Render_Context *render_setup(const char *title) {
+	window_setup(title);
 
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_BLEND);

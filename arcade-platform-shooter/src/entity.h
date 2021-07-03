@@ -9,10 +9,10 @@ typedef struct entity {
 	u32 texture;
 	vec2 offset;
 	vec2 size;
-	Body *body;
 	u8 max_health;
 	u8 health;
 	u8 is_enemy;
+	u8 flipped;
 } Entity;
 
 typedef struct entity_context {
@@ -22,6 +22,7 @@ typedef struct entity_context {
 
 Entity *entity_create(u32 texture, vec2 offset, vec2 size, Body *body, u8 max_health);
 Entity_Context *entity_setup();
+void entity_reset();
 
 #endif
 

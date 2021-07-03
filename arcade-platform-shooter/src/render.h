@@ -3,9 +3,9 @@
 
 #include "shared.h"
 
-#define SCALE 5
+#define SCALE 4
 #define WIDTH 256
-#define HEIGHT 144
+#define HEIGHT 224
 
 typedef struct render_context {
 	GLFWwindow *window;
@@ -19,10 +19,10 @@ typedef struct render_context {
 	u32 line_vbo;
 } Render_Context;
 
-Render_Context *render_setup();
+Render_Context *render_setup(const char *title);
 u32 shader_setup();
 void render_square(f32 x, f32 y, f32 width, f32 height, vec4 color);
-void render_sprite(u32 texture, vec3 position, vec2 size);
+void render_sprite(u32 texture, vec3 position, vec2 size, u8 flipped);
 u32 render_create_texture(const char *path);
 
 #endif

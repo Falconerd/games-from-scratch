@@ -11,20 +11,17 @@ f32 squared_distance(vec2 a, vec2 b) {
 static void physics_integrate(f32 delta_time) {
 	for (u32 i = 0; i < context.body_count; ++i) {
 		Body *body = &context.bodies[i];
-		if (body->fixed) {
+		if (body->is_fixed) {
 			continue;
 		}
 
-		printf("-> %u, %f %f, %f %f\n", body->collision_direction, body->aabb.min[1], body->aabb.max[1],
-			body->velocity[0],
-			body->velocity[1]
-		);
-
-		if (body->collision_direction != TOP)
+		if ((body->collision_direction & TOP) == 0) {
 			body->velocity[1] += -GRAVITY * delta_time;
+		}
 
-		if (body->velocity[1] < -TERMINAL_VELOCITY)
+		if (body->velocity[1] < -TERMINAL_VELOCITY) {
 			body->velocity[1] = -TERMINAL_VELOCITY;
+		}
 
 		body->aabb.min[0] += body->velocity[0];
 		body->aabb.max[0] += body->velocity[0];
@@ -111,14 +108,30 @@ static u32 collision_direction(Body *fixed, Body *unfixed) {
 }
 
 static void resolve_collision(Body *a, Body *b) {
-	if (a->fixed && b->fixed) {
+	// Fixed objects cannot collide.
+	if (a->is_fixed && b->is_fixed) {
 		return;
 	}
 
-	if (a->fixed || b->fixed) {
+	if (!a->is_fixed && !b->is_fixed) {
+		if (a->on_collision_enter) {
+			a->on_collision_enter(a, b, 0);
+		}
+
+		if (b->on_collision_enter) {
+			b->on_collision_enter(b, a, 0);
+		}
+	}
+
+	// Different layers cannot collide.
+	if ((a->mask & b->mask) == 0) {
+		return;
+	}
+
+	if (a->is_fixed || b->is_fixed) {
 		Body *fixed = a;
 		Body *unfixed = b;
-		if (b->fixed) {
+		if (b->is_fixed) {
 			fixed = b;
 			unfixed = a;
 		}
@@ -128,7 +141,7 @@ static void resolve_collision(Body *a, Body *b) {
 
 		u32 direction = collision_direction(fixed, unfixed);
 
-		unfixed->collision_direction = direction;
+		unfixed->collision_direction |= direction;
 
 		if (a->on_collision_enter) {
 			a->on_collision_enter(a, b, direction);
@@ -151,13 +164,17 @@ static void resolve_collision(Body *a, Body *b) {
 		} break;
 		case LEFT: {
 			f32 difference = fixed->aabb.min[0] - unfixed->aabb.max[0];
-			unfixed->aabb.min[0] += difference;
-			unfixed->aabb.max[0] += difference;
+			if (unfixed->aabb.min[1] != fixed->aabb.max[1]) {
+				unfixed->aabb.min[0] += difference;
+				unfixed->aabb.max[0] += difference;
+			}
 		} break;
 		case RIGHT: {
 			f32 difference = fixed->aabb.max[0] - unfixed->aabb.min[0];
-			unfixed->aabb.min[0] += difference;
-			unfixed->aabb.max[0] += difference;
+			if (unfixed->aabb.min[1] != fixed->aabb.max[1]) {
+				unfixed->aabb.min[0] += difference;
+				unfixed->aabb.max[0] += difference;
+			}
 		} break;
 		}
 	}
@@ -165,6 +182,7 @@ static void resolve_collision(Body *a, Body *b) {
 
 static void physics_resolve_collisions() {
 	qsort(body_ptrs, context.body_count, sizeof(Body*), x_axis_comparator);
+
 	for (u32 i = 0; i < context.body_count; ++i) {
 		context.bodies[i].collision_direction = 0;
 	}
@@ -203,4 +221,13 @@ Body *physics_create_body(vec2 position, vec2 size) {
 	body->aabb.max[0] = position[0] + size[0];
 	body->aabb.max[1] = position[1] + size[1];
 	return body;
+}
+
+void physics_reset() {
+	memset(body_ptrs, 0, MAX_OBJECTS * sizeof(Body*));
+	memset(context.bodies, 0, MAX_OBJECTS * sizeof(Body));
+	context.body_count = 0;
+	for (u32 i = 0; i < MAX_OBJECTS; ++i) {
+		body_ptrs[i] = &context.bodies[i];
+	}
 }

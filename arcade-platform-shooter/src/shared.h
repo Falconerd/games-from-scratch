@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
+#include <time.h>
+
 
 #include "../deps/lib/linmath.h"
 
