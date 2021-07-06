@@ -22,9 +22,9 @@ Entity *entity_create(u32 texture, vec2 position, vec2 body_size, vec2 sprite_of
 
 	entity->flags |= ENTITY_IS_IN_USE;
 
-	memcpy(entity->body.aabb.min, position, sizeof(vec2));
-	entity->body.aabb.max[0] = position[0] + body_size[0];
-	entity->body.aabb.max[1] = position[1] + body_size[1];
+	memcpy(entity->body.min, position, sizeof(vec2));
+	entity->body.max[0] = position[0] + body_size[0];
+	entity->body.max[1] = position[1] + body_size[1];
 	entity->texture = texture;
 	memcpy(entity->sprite_offset, sprite_offset, sizeof(vec2));
 	memcpy(entity->sprite_size, sprite_size, sizeof(vec2));

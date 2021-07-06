@@ -1,16 +1,5 @@
 #include "shared.h"
 
-typedef struct game_context {
-	f32 time_now;
-	f32 time_last_frame;
-	f32 delta_time;
-
-	u8 jump_key_state;
-	f32 spawn_timer;
-	f32 box_spawn_timer;
-	Entity *player;
-} Game_Context;
-
 static u32 PLAYER_TEXTURE;
 static u32 PLAYER_TEXTURE_MACHINE_GUN;
 static u32 PLAYER_TEXTURE_SHOTGUN;
@@ -78,7 +67,7 @@ void on_enemy_collide(Body *enemy_body, Body *other_body, DIRECTION direction) {
 	}
 
 	if ((other->body.flags & BODY_IS_TRIGGER) != 0) {
-		if (other->body.aabb.min[1] == 0) {
+		if (other->body.min[1] == 0) {
 			if (enemy->texture == ENEMY_TEXTURE_SMALL || enemy->texture == ENEMY_TEXTURE_SMALL_ANGRY) {
 				spawn_enemy(ENEMY_TYPE_SMALL_ANGRY);
 			} else if (enemy->texture == ENEMY_TEXTURE_LARGE || enemy->texture == ENEMY_TEXTURE_LARGE_ANGRY) {
@@ -206,7 +195,7 @@ void player_input() {
 
 	if (glfwGetKey(render_context->window, GLFW_KEY_E) == GLFW_PRESS) {
 		if (context.player->texture == PLAYER_TEXTURE_MACHINE_GUN) {
-			vec3 start_position = {context.player->body.aabb.min[0] + 4, context.player->body.aabb.min[1] + 2};
+			vec3 start_position = {context.player->body.min[0] + 4, context.player->body.min[1] + 2};
 			Entity *bullet = entity_create(BULLET_TEXTURE, start_position, (vec2){3, 3}, (vec2){0, 0}, (vec2){3, 3}, 0);
 			bullet->body.velocity[0] = 5;
 			if ((context.player->flags & ENTITY_IS_FLIPPED) != 0) {
@@ -260,27 +249,27 @@ void restart() {
 	physics_reset();
 
 	// Setup player.
-	context.player = entity_create(PLAYER_TEXTURE, (vec2){123, 96}, (vec2){8, 10}, (vec2){-12, 0}, (vec2){32, 10}, 1);
+	context.player = entity_create(PLAYER_TEXTURE, (vec2){20, 96}, (vec2){8, 10}, (vec2){-12, 0}, (vec2){32, 10}, 1);
 	context.player->body.mask = PLAYER_COLLISION_MASK | ENTITY_COLLISION_MASK | BOX_MASK;
 	context.player->body.on_collision = on_player_collide;
 
 	// Create terrain.
 	create_terrain((vec2){0, 0}, (vec2){112, 32}, PLAYER_COLLISION_MASK | ENEMY_COLLISION_MASK);
-	create_terrain((vec2){144, 0}, (vec2){112, 32}, PLAYER_COLLISION_MASK | ENEMY_COLLISION_MASK);
-	create_terrain((vec2){64, 64}, (vec2){128, 13}, PLAYER_COLLISION_MASK | ENEMY_COLLISION_MASK);
-	create_terrain((vec2){64, 160}, (vec2){128, 13}, PLAYER_COLLISION_MASK | ENEMY_COLLISION_MASK);
-	create_terrain((vec2){13, 112}, (vec2){51, 13}, PLAYER_COLLISION_MASK | ENEMY_COLLISION_MASK);
-	create_terrain((vec2){192, 112}, (vec2){51, 13}, PLAYER_COLLISION_MASK | ENEMY_COLLISION_MASK);
-	create_terrain((vec2){0, 211}, (vec2){112, 13}, PLAYER_COLLISION_MASK | ENEMY_COLLISION_MASK);
-	create_terrain((vec2){144, 211}, (vec2){112, 13}, PLAYER_COLLISION_MASK | ENEMY_COLLISION_MASK);
-	create_terrain((vec2){0, 32}, (vec2){13, 179}, PLAYER_COLLISION_MASK | ENEMY_COLLISION_MASK);
-	create_terrain((vec2){243, 32}, (vec2){13, 179}, PLAYER_COLLISION_MASK | ENEMY_COLLISION_MASK);
+	// create_terrain((vec2){144, 0}, (vec2){112, 32}, PLAYER_COLLISION_MASK | ENEMY_COLLISION_MASK);
+	// create_terrain((vec2){64, 64}, (vec2){128, 13}, PLAYER_COLLISION_MASK | ENEMY_COLLISION_MASK);
+	// create_terrain((vec2){64, 160}, (vec2){128, 13}, PLAYER_COLLISION_MASK | ENEMY_COLLISION_MASK);
+	// create_terrain((vec2){13, 112}, (vec2){51, 13}, PLAYER_COLLISION_MASK | ENEMY_COLLISION_MASK);
+	// create_terrain((vec2){192, 112}, (vec2){51, 13}, PLAYER_COLLISION_MASK | ENEMY_COLLISION_MASK);
+	// create_terrain((vec2){0, 211}, (vec2){112, 13}, PLAYER_COLLISION_MASK | ENEMY_COLLISION_MASK);
+	// create_terrain((vec2){144, 211}, (vec2){112, 13}, PLAYER_COLLISION_MASK | ENEMY_COLLISION_MASK);
+	// create_terrain((vec2){0, 32}, (vec2){13, 179}, PLAYER_COLLISION_MASK | ENEMY_COLLISION_MASK);
+	// create_terrain((vec2){243, 32}, (vec2){13, 179}, PLAYER_COLLISION_MASK | ENEMY_COLLISION_MASK);
 
-	create_terrain((vec2){112, 0}, (vec2){32, 32}, PLAYER_COLLISION_MASK);
-	create_terrain((vec2){112, 211}, (vec2){32, 13}, PLAYER_COLLISION_MASK);
+	// create_terrain((vec2){112, 0}, (vec2){32, 32}, PLAYER_COLLISION_MASK);
+	// create_terrain((vec2){112, 211}, (vec2){32, 13}, PLAYER_COLLISION_MASK);
 
-	Entity *e = create_terrain((vec2){112, 0}, (vec2){32, 16}, ENEMY_COLLISION_MASK);
-	e->body.flags |= BODY_IS_TRIGGER;
+	// Entity *e = create_terrain((vec2){112, 0}, (vec2){32, 16}, ENEMY_COLLISION_MASK);
+	// e->body.flags |= BODY_IS_TRIGGER;
 }
 
 int main(void) {
@@ -314,8 +303,8 @@ int main(void) {
 		glClearColor(0.9, 0.8, 0.8, 1);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		spawn_enemies();
-		spawn_box();
+		// spawn_enemies();
+		// spawn_box();
 		player_input();
 
 		physics_tick(context.delta_time);
@@ -330,9 +319,9 @@ int main(void) {
 			if ((entity->flags & ENTITY_IS_IN_USE) == 0) {
 				continue;
 			}
-			AABB *aabb = &entity_context->entities[i].body.aabb;
+			Body *body = &entity_context->entities[i].body;
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-			render_square(aabb->min[0], aabb->min[1], aabb->max[0] - aabb->min[0], aabb->max[1] - aabb->min[1], (vec4){0.0f, 1.0f, 0.0f, 1.0f});
+			render_square(body->min[0], body->min[1], body->max[0] - body->min[0], body->max[1] - body->min[1], (vec4){0.0f, 1.0f, 0.0f, 1.0f});
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		}
 
@@ -342,8 +331,8 @@ int main(void) {
 				continue;
 			}
 			if (entity->texture != 0xdeadbeef) {
-				vec3 position = { entity->body.aabb.min[0] + entity->sprite_offset[0],
-						  entity->body.aabb.min[1] + entity->sprite_offset[1], 0 };
+				vec3 position = { entity->body.min[0] + entity->sprite_offset[0],
+						  entity->body.min[1] + entity->sprite_offset[1], 0 };
 				render_sprite(entity->texture, position, entity->sprite_size, (entity->flags & ENTITY_IS_FLIPPED) != 0);
 			}
 		}

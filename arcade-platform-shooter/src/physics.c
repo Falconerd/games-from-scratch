@@ -27,22 +27,22 @@ static void physics_integrate(f32 delta_time) {
 			body->velocity[1] = -TERMINAL_VELOCITY;
 		}
 
-		body->aabb.min[0] += body->velocity[0];
-		body->aabb.max[0] += body->velocity[0];
-		body->aabb.min[1] += body->velocity[1];
-		body->aabb.max[1] += body->velocity[1];
+		body->min[0] += body->velocity[0];
+		body->max[0] += body->velocity[0];
+		body->min[1] += body->velocity[1];
+		body->max[1] += body->velocity[1];
 	}
 }
 
-static u32 aabb_overlap(AABB a, AABB b) {
-	if (a.max[0] < b.min[0] || a.min[0] > b.max[0]) return 0;
-	if (a.max[1] < b.min[1] || a.min[1] > b.max[1]) return 0;
+static u32 aabb_overlap(vec2 a_min, vec2 a_max, vec2 b_min, vec2 b_max) {
+	if (a_max[0] < b_min[0] || a_min[0] > b_max[0]) return 0;
+	if (a_max[1] < b_min[1] || a_min[1] > b_max[1]) return 0;
 	return 1;
 }
 
 static i32 x_axis_comparator(const void *a, const void *b) {
-	f32 min_a = (*(Body**)a)->aabb.min[0];
-	f32 min_b = (*(Body**)b)->aabb.min[0];
+	f32 min_a = (*(Body**)a)->min[0];
+	f32 min_b = (*(Body**)b)->min[0];
 	if (min_a < min_b) return -1;
 	if (min_a > min_b) return 1;
 	return 0;
@@ -54,10 +54,10 @@ f32 fdist(f32 a, f32 b) {
 
 static u32 collision_direction(Body *fixed, Body *unfixed) {
 	vec2 velocity = {unfixed->velocity[0], unfixed->velocity[1]};
-	vec2 fixed_min = {fixed->aabb.min[0], fixed->aabb.min[1]};
-	vec2 fixed_max = {fixed->aabb.max[0], fixed->aabb.max[1]};
-	vec2 unfixed_min = {unfixed->aabb.min[0], unfixed->aabb.min[1]};
-	vec2 unfixed_max = {unfixed->aabb.max[0], unfixed->aabb.max[1]};
+	vec2 fixed_min = {fixed->min[0], fixed->min[1]};
+	vec2 fixed_max = {fixed->max[0], fixed->max[1]};
+	vec2 unfixed_min = {unfixed->min[0], unfixed->min[1]};
+	vec2 unfixed_max = {unfixed->max[0], unfixed->max[1]};
 
 	if (velocity[0] + velocity[1] == 0)
 		return 16;
@@ -111,122 +111,44 @@ static u32 collision_direction(Body *fixed, Body *unfixed) {
 	return 32;
 }
 
-static void resolve_collision(Body *a, Body *b) {
-	u8 a_is_fixed = (a->flags & BODY_IS_FIXED) != 0;
-	u8 b_is_fixed = (b->flags & BODY_IS_FIXED) != 0;
+/* Collisions:
+	 * Player/Enemy vs Terrain.
+ * 
+ * Triggers:
+	 * Bullet vs Enemy.
+         * Bullet vs Terrain.
+         * Enemy vs Fire.
+ */
+static void resolve_collision(Body *body_a, Body *body_b) {
+	Entity *a = (Entity*)body_a;
+	Entity *b = (Entity*)body_b;
 
-	Entity *entity_a = (Entity*)a;
-	Entity *entity_b = (Entity*)b;
-
-	// Entities which are inactive cannot collide.
-	if ((entity_a->flags & ENTITY_IS_IN_USE) == 0 || (entity_b->flags & ENTITY_IS_IN_USE) == 0) {
+	if ((a->flags & ENTITY_IS_IN_USE) != 0 || (b->flags & ENTITY_IS_IN_USE) != 0) {
 		return;
 	}
 
-	// Fixed objects cannot collide.
-	if (a_is_fixed && b_is_fixed) {
+	if ((body_a->flags & BODY_IS_FIXED) != 0 && (body_b->flags & BODY_IS_FIXED) != 0) {
 		return;
 	}
 
-	// Kinematic objects cannot collide.
-	if ((a->flags & BODY_IS_KINEMATIC) != 0 && (b->flags & BODY_IS_KINEMATIC) != 0) {
-		return;
-	}
+	printf("%f\n", body_a->min[1]);
+}
 
-	if ((!a_is_fixed && !b_is_fixed) || ((a->flags & BODY_IS_KINEMATIC) != 0 || (a->flags & BODY_IS_KINEMATIC) != 0)) {
-		if (a->on_collision) {
-			a->on_collision(a, b, 0);
-		}
-
-		if (b->on_collision) {
-			b->on_collision(b, a, 0);
-		}
-	}
-
-	// Triggers cannot cause responses, but they can cause events.
-	if ((a->flags & BODY_IS_TRIGGER) != 0 || (b->flags & BODY_IS_TRIGGER) != 0) {
-		if (a->on_collision) {
-			a->on_collision(a, b, 0);
-		}
-
-		if (b->on_collision) {
-			b->on_collision(b, a, 0);
-		}
-		return;
-	}
-
-	// Different layers cannot collide.
-	if ((a->mask & b->mask) == 0) {
-		return;
-	}
-
-	if (a_is_fixed || b_is_fixed) {
-		Body *fixed = a;
-		Body *unfixed = b;
-		if (b_is_fixed) {
-			fixed = b;
-			unfixed = a;
-		}
-
-		if (unfixed->velocity[0] + unfixed->velocity[1] == 0)
-			return;
-
-		u32 direction = collision_direction(fixed, unfixed);
-
-		unfixed->flags |= direction;
-
-		if (a->on_collision) {
-			a->on_collision(a, b, direction);
-		}
-
-		if (b->on_collision) {
-			b->on_collision(b, a, direction);
-		}
-
-		switch (direction) {
-		case TOP: {
-			f32 difference = fixed->aabb.max[1] - unfixed->aabb.min[1];
-			unfixed->aabb.min[1] += difference;
-			unfixed->aabb.max[1] += difference;
-		} break;
-		case BOTTOM: {
-			f32 difference = fixed->aabb.min[1] - unfixed->aabb.max[1];
-			unfixed->aabb.min[1] += difference;
-			unfixed->aabb.max[1] += difference;
-		} break;
-		case LEFT: {
-			f32 difference = fixed->aabb.min[0] - unfixed->aabb.max[0];
-			if (unfixed->aabb.min[1] != fixed->aabb.max[1]) {
-				unfixed->aabb.min[0] += difference;
-				unfixed->aabb.max[0] += difference;
-			}
-		} break;
-		case RIGHT: {
-			f32 difference = fixed->aabb.max[0] - unfixed->aabb.min[0];
-			if (unfixed->aabb.min[1] != fixed->aabb.max[1]) {
-				unfixed->aabb.min[0] += difference;
-				unfixed->aabb.max[0] += difference;
-			}
-		} break;
-		}
-	}
+static u32 bodies_would_overlap(Body *body_a, Body *body_b) {
+	vec2 min_a = {body_a->min[0] + body_a->velocity[0], body_a->min[1] + body_a->velocity[1]};
+	vec2 max_a = {body_a->max[0] + body_a->velocity[0], body_a->max[1] + body_a->velocity[1]};
+	vec2 min_b = {body_b->min[0] + body_b->velocity[0], body_b->min[1] + body_b->velocity[1]};
+	vec2 max_b = {body_b->max[0] + body_b->velocity[0], body_b->max[1] + body_b->velocity[1]};
+	return aabb_overlap(min_a, max_a, min_b, max_b);
 }
 
 static void physics_resolve_collisions() {
-	qsort(body_ptrs, MAX_ENTITIES, sizeof(Body*), x_axis_comparator);
-
-	// Disable collision direction.
-	for (u32 i = 0; i < MAX_ENTITIES; ++i) {
-		context->entities[i].body.flags &= ~0xf;
-	}
+	qsort(body_ptrs, MAX_ENTITIES, sizeof(void*), x_axis_comparator);
 
 	for (u32 i = 0; i < MAX_ENTITIES; ++i) {
 		for (u32 j = i + 1; j < MAX_ENTITIES; ++j) {
-			if (body_ptrs[j]->aabb.min[0] > body_ptrs[i]->aabb.max[0])
+			if (body_ptrs[j]->min[0] > body_ptrs[i]->max[0])
 				break;
-			if (aabb_overlap(body_ptrs[i]->aabb, body_ptrs[j]->aabb)) {
-				resolve_collision(body_ptrs[i], body_ptrs[j]);
-			}
 		}
 	}
 }

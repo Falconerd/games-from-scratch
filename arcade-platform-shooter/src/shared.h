@@ -8,7 +8,6 @@
 #include <stddef.h>
 #include <time.h>
 
-
 #include "../deps/lib/linmath.h"
 
 // Types.
@@ -27,17 +26,8 @@
 #define WIDTH 256
 #define HEIGHT 224
 
-#define GRAVITY 15
+#define GRAVITY 4
 #define TERMINAL_VELOCITY 15
-#define MAX_ENTITIES 256
-
-#define BODY_IS_FIXED 16 // Use direction enum as 1,2,4,8.
-#define BODY_IS_TRIGGER 32
-#define BODY_IS_KINEMATIC 64
-
-#define ENTITY_IS_IN_USE 1
-#define ENTITY_IS_ENEMY 2
-#define ENTITY_IS_FLIPPED 4
 
 typedef enum direction {
 	LEFT   = 1,
@@ -46,37 +36,49 @@ typedef enum direction {
 	BOTTOM = 8
 } DIRECTION;
 
-typedef struct body Body;
-typedef void (*Collision_Event)(Body* self, Body *other, DIRECTION direction);
+#define MAX_ENEMIES 128
+#define MAX_BULLETS 64
+#define MAX_ROCKETS 8
 
-typedef struct aabb {
+typedef struct player {
 	vec2 min;
 	vec2 max;
-} AABB;
-
-struct body {
-	u8 flags;
-	u8 mask;
 	vec2 velocity;
-	AABB aabb;
-	Collision_Event on_collision;
-};
-
-typedef struct entity {
-	Body body;
-	u8 max_health;
-	u8 health;
-	u8 flags;
 	u32 texture;
-	vec2 sprite_offset;
-	vec2 sprite_size;
-} Entity;
+} Player;
+
+typedef struct enemy {
+	vec2 min;
+	vec2 max;
+	vec2 velocity;
+	u32 texture;
+} Enemy;
+
+typedef struct bullet {
+	vec2 min;
+	vec2 max;
+	vec2 velocity;
+	u32 texture;
+} Bullet;
+
+typedef struct rocket {
+	vec2 min;
+	vec2 max;
+	vec2 velocity;
+	u32 texture;
+} Rocket;
+
+typedef struct terrain {
+	vec2 min;
+	vec2 max;
+} Terrain;
+
+typedef struct trigger {
+	vec2 min;
+	vec2 max;
+} Trigger;
 
 // Context structs.
-
-typedef struct entity_context {
-	Entity entities[MAX_ENTITIES];
-} Entity_Context;
 
 typedef struct input_context {
 	u8 player_input;
@@ -94,14 +96,27 @@ typedef struct render_context {
 	u32 line_vbo;
 } Render_Context;
 
-void physics_setup(Entity_Context *entity_context);
+typedef struct game_context {
+	f32 time_now;
+	f32 time_last_frame;
+	f32 delta_time;
+
+	u32 jump_key_state;
+	f32 spawn_timer;
+	f32 box_spawn_timer;
+
+	Player player;
+	Enemy enemies[MAX_ENEMIES];
+	Bullet bullets[MAX_BULLETS];
+	Rocket rockets[MAX_ROCKETS];
+	Terrain terrain[10];
+	// One for the fire. One for the box.
+	Trigger triggers[2];
+} Game_Context;
+
+void physics_setup(Game_Context *game_context);
 void physics_tick(f32 delta_time);
 void physics_reset();
-
-Entity *entity_create(u32 texture, vec2 position, vec2 body_size, vec2 sprite_offset, vec2 sprite_size, u8 max_health);
-Entity_Context *entity_setup();
-void entity_reset();
-void entity_destroy(Entity *entity);
 
 void input_key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
 Input_Context *input_setup();
@@ -117,4 +132,9 @@ char *read_file_into_buffer(const char *path);
 void error_and_exit(i32 code, const char *message);
 
 #endif
+
+
+
+
+
 
