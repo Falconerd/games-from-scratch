@@ -117,6 +117,46 @@ void render_aabb(AABB aabb, vec4 color) {
 	render_square(aabb.position[0] - aabb.half_sizes[0], aabb.position[1] - aabb.half_sizes[1], aabb.half_sizes[0] * 2, aabb.half_sizes[1] * 2, color);
 }
 
+void render_segment(vec2 start, vec2 end, vec4 color) {
+	f32 x = end[0] - start[0];
+	f32 y = end[1] - start[1];
+	f32 line[6] = {0, 0, 0, x, y, 0};
+	mat4x4 model;
+	mat4x4_identity(model);
+
+	mat4x4_translate(model, start[0], start[1], 0);
+
+	glUniformMatrix4fv(glGetUniformLocation(context.shader, "model"), 1, GL_FALSE, &model[0][0]);
+	glUniform4fv(glGetUniformLocation(context.shader, "color"), 1, color);
+
+	glBindTexture(GL_TEXTURE_2D, context.color_texture);
+	glBindVertexArray(context.line_vao);
+	glEnableVertexAttribArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, context.line_vbo);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, (sizeof line), &line);
+	glDrawArrays(GL_LINES, 0, 2);
+	glDisableVertexAttribArray(0);
+}
+
+void render_ray(vec2 start, vec2 direction, f32 length, vec4 color, u8 arrow) {
+	vec2 normal;
+	vec2_norm(normal, direction);
+	vec2 end = {start[0] + normal[0] * length, start[1] + normal[1] * length};
+	render_segment(start, end, color);
+	if (arrow) {
+		{
+			vec2 position = {end[0] - direction[0] * 4 + direction[1] * 4,
+			                 end[1] - direction[1] * 4 - direction[0] * 4};
+			render_segment(end, position, color);
+		}
+		{
+			vec2 position = {end[0] - direction[0] * 4 - direction[1] * 4,
+			                 end[1] - direction[1] * 4 + direction[0] * 4};
+			render_segment(end, position, color);
+		}
+	}
+}
+
 void render_sprite(u32 texture, vec3 position, vec2 size, u8 flipped) {
 	mat4x4 model;
 	mat4x4_identity(model);

@@ -17,11 +17,7 @@ static const Render_Context *render_context;
 
 #define PI 3.1415f
 
-int main(void) {
-	srand(time(NULL));
-
-	render_context = render_setup(GAME_TITLE);
-
+void example_aabb_aabb() {
 	Body a = {{{128, 50}, {32, 8}}};
 	Body b = {{{128, 50}, {8, 8}}};
 	AABB c = {{0, 0}, {8, 8}};
@@ -65,4 +61,61 @@ int main(void) {
 
 		glfwSwapBuffers(render_context->window);
 	}
+}
+
+void example_aabb_segment() {
+	Body box = {{{128, 128}, {8, 8}}};
+	f32 angle = 0;
+
+	while (!glfwWindowShouldClose(render_context->window)) {
+		context.time_now = glfwGetTime();
+		context.delta_time = context.time_now - context.time_last_frame;
+		context.time_last_frame = context.time_now;
+
+		glfwPollEvents();
+		glClearColor(0.0, 0.0, 0.0, 1);
+		glClear(GL_COLOR_BUFFER_BIT);
+
+		// Update physics.
+
+		glUseProgram(render_context->shader);
+		glUniformMatrix4fv(glGetUniformLocation(render_context->shader, "projection"), 1, GL_FALSE, &render_context->projection[0][0]);
+
+		angle += 0.5f * PI * context.delta_time;
+
+		vec2 pos1 = {128 + cosf(angle) * 32.0f, 128 + sinf(angle) * 32.0f};
+		vec2 pos2 = {128 + sinf(angle) * 16.0f, 128 + cosf(angle) * 16.0f};
+		vec2 delta = {pos2[0] - pos1[0], pos2[1] - pos1[1]};
+		Hit hit = aabb_intersect_segment(&box.aabb, pos1, delta);
+		vec2 dir;
+		vec2_norm(dir, delta);
+		f32 length = sqrtf(delta[0] * delta[0] + delta[1] * delta[1]);
+
+		render_aabb(box.aabb, (vec4){1, 1, 1, 1});
+
+		if (hit.body != NULL) {
+			render_ray(pos1, dir, length, (vec4){1, 0, 0, 1}, 1);
+			render_segment(pos1, hit.position, (vec4){1, 1, 0, 1});
+			render_point(hit.position, (vec4){1, 1, 0, 1});
+			render_ray(hit.position, hit.normal, 6, (vec4){1, 1, 0, 1}, 0);
+		} else {
+			render_ray(pos1, dir, length, (vec4){0, 1, 0, 1}, 1);
+		}
+
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+		glfwSwapBuffers(render_context->window);
+	}
+}
+
+int main(void) {
+	srand(time(NULL));
+
+	render_context = render_setup(GAME_TITLE);
+
+	// example_aabb_aabb();
+	// example_aabb_segment();
+	// Body body = {{{0, 0}, {8, 8}}};
+	// Hit hit = aabb_intersect_segment(&body.aabb, (vec2){-16, -16}, (vec2){32, 0});
+	// printf("%p\n", (void*)hit.body);
 }

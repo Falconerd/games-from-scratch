@@ -28,6 +28,7 @@
 
 void error_and_exit(i32 code, const char *message);
 f32 fsign(f32 a);
+f32 fclamp(f32 a, f32 min, f32 max);
 
 // Physics.
 
@@ -64,6 +65,7 @@ typedef struct physics_context {
 Physics_Context *physics_setup(u32 max_bodies);
 void physics_tick(f32 delta_time);
 Hit aabb_intersect_aabb(AABB *self, AABB *other);
+Hit aabb_intersect_segment(AABB *self, vec2 position, vec2 delta);
 
 // Entity.
 
@@ -101,6 +103,8 @@ void render_square(f32 x, f32 y, f32 width, f32 height, vec4 color);
 void render_sprite(u32 texture, vec3 position, vec2 size, u8 flipped);
 void render_point(vec2 position, vec4 color);
 void render_aabb(AABB aabb, vec4 color);
+void render_segment(vec2 start, vec2 end, vec4 color);
+void render_ray(vec2 start, vec2 direction, f32 length, vec4 color, u8 arrow);
 u32 render_create_texture(const char *path);
 
 // Input output.
