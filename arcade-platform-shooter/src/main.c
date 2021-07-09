@@ -86,23 +86,92 @@ void example_aabb_segment() {
 		vec2 pos1 = {128 + cosf(angle) * 32.0f, 128 + sinf(angle) * 32.0f};
 		vec2 pos2 = {128 + sinf(angle) * 16.0f, 128 + cosf(angle) * 16.0f};
 		vec2 delta = {pos2[0] - pos1[0], pos2[1] - pos1[1]};
-		Hit hit = aabb_intersect_segment(&box.aabb, pos1, delta);
+		Hit hit = aabb_intersect_segment(&box.aabb, pos1, delta, 0, 0);
 		vec2 dir;
 		vec2_norm(dir, delta);
-		f32 length = sqrtf(delta[0] * delta[0] + delta[1] * delta[1]);
+		f32 length = vec2_len(delta);
 
 		render_aabb(box.aabb, (vec4){1, 1, 1, 1});
 
 		if (hit.body != NULL) {
 			render_ray(pos1, dir, length, (vec4){1, 0, 0, 1}, 1);
 			render_segment(pos1, hit.position, (vec4){1, 1, 0, 1});
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 			render_point(hit.position, (vec4){1, 1, 0, 1});
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 			render_ray(hit.position, hit.normal, 6, (vec4){1, 1, 0, 1}, 0);
 		} else {
 			render_ray(pos1, dir, length, (vec4){0, 1, 0, 1}, 1);
 		}
 
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+		glfwSwapBuffers(render_context->window);
+	}
+}
+
+void example_aabb_aabb_sweep() {
+	f32 angle = 0;
+	AABB static_box = {{128, 112}, {56, 8}};
+	AABB sweep_box_array[2] = {
+		{{56, 124}, {8, 8}},
+		{{196, 88}, {8, 8}},
+	};
+	vec2 sweep_box_delta_array[2] = {{32, -6}, {-16, 48}};
+	AABB temp_box = {{0, 0}, {8, 8}};
+
+	while (!glfwWindowShouldClose(render_context->window)) {
+		context.time_now = glfwGetTime();
+		context.delta_time = context.time_now - context.time_last_frame;
+		context.time_last_frame = context.time_now;
+
+		glfwPollEvents();
+		glClearColor(0.0, 0.0, 0.0, 1);
+		glClear(GL_COLOR_BUFFER_BIT);
+
+		// Update physics.
+
+		glUseProgram(render_context->shader);
+		glUniformMatrix4fv(glGetUniformLocation(render_context->shader, "projection"), 1, GL_FALSE, &render_context->projection[0][0]);
+
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+		angle += 0.5f * PI * context.delta_time;
+		render_aabb(static_box, (vec4){1, 1, 1, 1});
+
+		f32 factor = (cosf(angle) + 1) * 0.5f;
+
+		for (u32 i = 0; i < 2; ++i) {
+			AABB *box = &sweep_box_array[i];
+			vec2 delta = {sweep_box_delta_array[i][0], sweep_box_delta_array[i][1]};
+			delta[0] *= factor;
+			delta[1] *= factor;
+			Sweep sweep = aabb_sweep_aabb(&static_box, box, delta);
+			vec2 direction;
+			vec2_norm(direction, delta);
+			f32 length = vec2_len(delta);
+			render_aabb(*box, (vec4){1, 1, 1, 1});
+
+			if (sweep.hit.body != NULL) {
+				render_ray(box->position, direction, length, (vec4){1, 0, 0, 1}, 1);
+				temp_box.position[0] = box->position[0] + delta[0];
+				temp_box.position[1] = box->position[1] + delta[1];
+				render_aabb(temp_box, (vec4){1, 0, 0, 1});
+
+				temp_box.position[0] = sweep.position[0];
+				temp_box.position[1] = sweep.position[1];
+				render_aabb(temp_box, (vec4){1, 1, 0, 1});
+				glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+				render_point(sweep.hit.position, (vec4){1, 1, 0, 1});
+				glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+				render_ray(sweep.hit.position, sweep.hit.normal, 2, (vec4){1, 1, 0, 1}, 0);
+			} else {
+				temp_box.position[0] = sweep.position[0];
+				temp_box.position[1] = sweep.position[1];
+				render_aabb(temp_box, (vec4){0, 1, 0, 1});
+				render_ray(box->position, direction, length, (vec4){0, 1, 0, 1}, 1);
+			}
+		}
 
 		glfwSwapBuffers(render_context->window);
 	}
@@ -115,6 +184,7 @@ int main(void) {
 
 	// example_aabb_aabb();
 	// example_aabb_segment();
+	example_aabb_aabb_sweep();
 	// Body body = {{{0, 0}, {8, 8}}};
 	// Hit hit = aabb_intersect_segment(&body.aabb, (vec2){-16, -16}, (vec2){32, 0});
 	// printf("%p\n", (void*)hit.body);

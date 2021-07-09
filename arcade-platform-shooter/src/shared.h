@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stddef.h>
 #include <time.h>
+#include <float.h>
 
 #include "../deps/lib/linmath.h"
 
@@ -65,7 +66,8 @@ typedef struct physics_context {
 Physics_Context *physics_setup(u32 max_bodies);
 void physics_tick(f32 delta_time);
 Hit aabb_intersect_aabb(AABB *self, AABB *other);
-Hit aabb_intersect_segment(AABB *self, vec2 position, vec2 delta);
+Hit aabb_intersect_segment(AABB *self, vec2 position, vec2 delta, f32 padding_x, f32 padding_y);
+Sweep aabb_sweep_aabb(AABB *self, AABB *other, vec2 delta);
 
 // Entity.
 

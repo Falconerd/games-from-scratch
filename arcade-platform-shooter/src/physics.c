@@ -46,16 +46,16 @@ Hit aabb_intersect_aabb(AABB *self, AABB *other) {
 	return hit;
 }
 
-Hit aabb_intersect_segment(AABB *self, vec2 position, vec2 delta) {
+Hit aabb_intersect_segment(AABB *self, vec2 position, vec2 delta, f32 padding_x, f32 padding_y) {
 	Hit hit = {0};
 	f32 scale_x = 1.0f / delta[0];
 	f32 scale_y = 1.0f / delta[1];
 	f32 sign_x = fsign(scale_x);
 	f32 sign_y = fsign(scale_y);
-	f32 near_time_x = (self->position[0] - sign_x * (self->half_sizes[0]) - position[0]) * scale_x;
-	f32 near_time_y = (self->position[1] - sign_y * (self->half_sizes[1]) - position[1]) * scale_y;
-	f32 far_time_x = (self->position[0] + sign_x * (self->half_sizes[0]) - position[0]) * scale_x;
-	f32 far_time_y = (self->position[1] + sign_y * (self->half_sizes[1]) - position[1]) * scale_y;
+	f32 near_time_x = (self->position[0] - sign_x * (self->half_sizes[0] + padding_x) - position[0]) * scale_x;
+	f32 near_time_y = (self->position[1] - sign_y * (self->half_sizes[1] + padding_y) - position[1]) * scale_y;
+	f32 far_time_x = (self->position[0] + sign_x * (self->half_sizes[0] + padding_x) - position[0]) * scale_x;
+	f32 far_time_y = (self->position[1] + sign_y * (self->half_sizes[1] + padding_y) - position[1]) * scale_y;
 
 	if (near_time_x > far_time_y || near_time_y > far_time_x) {
 		return hit;
@@ -104,5 +104,29 @@ Sweep aabb_sweep_aabb(AABB *self, AABB *other, vec2 delta) {
 		return sweep;
 	}
 
-	// sweep.hit = aabb_intersect_segment(other->position, delta, other->half_sizes[0], other->half_sizes[1]);
+	sweep.hit = aabb_intersect_segment(self, other->position, delta, other->half_sizes[0], other->half_sizes[1]);
+
+	if (sweep.hit.body != NULL) {
+		sweep.time = fclamp(sweep.hit.time - FLT_EPSILON, 0, 1);
+		sweep.position[0] = other->position[0] + delta[0] * sweep.time;
+		sweep.position[1] = other->position[1] + delta[1] * sweep.time;
+		vec2 direction;
+		vec2_norm(direction, delta);
+		sweep.hit.position[0] = fclamp(
+			sweep.hit.position[0] + direction[0] * other->half_sizes[0],
+			self->position[0] - self->half_sizes[0],
+			self->position[0] + self->half_sizes[0]
+		);
+		sweep.hit.position[1] = fclamp(
+			sweep.hit.position[1] + direction[1] * other->half_sizes[1],
+			self->position[1] - self->half_sizes[1],
+			self->position[1] + self->half_sizes[1]
+		);
+	} else {
+		sweep.position[0] = other->position[0] + delta[0];
+		sweep.position[1] = other->position[1] + delta[1];
+		sweep.time = 1;
+	}
+
+	return sweep;
 }

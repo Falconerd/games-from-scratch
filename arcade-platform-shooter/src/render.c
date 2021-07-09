@@ -145,13 +145,13 @@ void render_ray(vec2 start, vec2 direction, f32 length, vec4 color, u8 arrow) {
 	render_segment(start, end, color);
 	if (arrow) {
 		{
-			vec2 position = {end[0] - direction[0] * 4 + direction[1] * 4,
-			                 end[1] - direction[1] * 4 - direction[0] * 4};
+			vec2 position = {end[0] - direction[0] * 2 + direction[1] * 2,
+			                 end[1] - direction[1] * 2 - direction[0] * 2};
 			render_segment(end, position, color);
 		}
 		{
-			vec2 position = {end[0] - direction[0] * 4 - direction[1] * 4,
-			                 end[1] - direction[1] * 4 + direction[0] * 4};
+			vec2 position = {end[0] - direction[0] * 2 - direction[1] * 2,
+			                 end[1] - direction[1] * 2 + direction[0] * 2};
 			render_segment(end, position, color);
 		}
 	}
