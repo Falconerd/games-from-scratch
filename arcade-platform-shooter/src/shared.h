@@ -1,5 +1,5 @@
-#ifndef src_shared_h_INCLUDED
-#define src_shared_h_INCLUDED
+#ifndef shared_h_INCLUDED
+#define shared_h_INCLUDED
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <stdio.h>
@@ -26,63 +26,63 @@
 #define WIDTH 256
 #define HEIGHT 224
 
-#define GRAVITY 4
-#define TERMINAL_VELOCITY 15
+void error_and_exit(i32 code, const char *message);
+f32 fsign(f32 a);
 
-typedef enum direction {
-	LEFT   = 1,
-	RIGHT  = 2,
-	TOP    = 4,
-	BOTTOM = 8
-} DIRECTION;
+// Physics.
 
-#define MAX_ENEMIES 128
-#define MAX_BULLETS 64
-#define MAX_ROCKETS 8
+typedef struct aabb {
+	vec2 position;
+	vec2 half_sizes;
+} AABB;
 
-typedef struct player {
-	vec2 min;
-	vec2 max;
+typedef struct body {
+	AABB aabb;
 	vec2 velocity;
+} Body;
+
+typedef struct hit {
+	Body *body;
+	vec2 position;
+	vec2 delta;
+	vec2 normal;
+	f32 time;
+} Hit;
+
+typedef struct sweep {
+	Hit hit;
+	vec2 position;
+	f32 time;
+} Sweep;
+
+typedef struct physics_context {
+	u32 body_array_count;
+	u32 body_array_max;
+	Body *body_array;
+} Physics_Context;
+
+Physics_Context *physics_setup(u32 max_bodies);
+void physics_tick(f32 delta_time);
+Hit aabb_intersect_aabb(AABB *self, AABB *other);
+
+// Entity.
+
+typedef struct entity {
 	u32 texture;
-} Player;
+	vec2 sprite_offset;
+	vec2 sprite_size;
+} Entity;
 
-typedef struct enemy {
-	vec2 min;
-	vec2 max;
-	vec2 velocity;
-	u32 texture;
-} Enemy;
+typedef struct entity_context {
+	Entity *entity_array;
+	u32 entity_array_count;
+	u32 entity_array_max;
+} Entity_Context;
 
-typedef struct bullet {
-	vec2 min;
-	vec2 max;
-	vec2 velocity;
-	u32 texture;
-} Bullet;
+Entity_Context *entity_setup(u32 max_entities);
+Entity *entity_create(u32 texture, vec2 sprite_offset, vec2 sprite_size);
 
-typedef struct rocket {
-	vec2 min;
-	vec2 max;
-	vec2 velocity;
-	u32 texture;
-} Rocket;
-
-typedef struct terrain {
-	vec2 min;
-	vec2 max;
-} Terrain;
-
-typedef struct trigger {
-	vec2 min;
-	vec2 max;
-} Trigger;
-
-// Context structs.
-
-typedef struct input_context {
-	u8 player_input;
-} Input_Context;
+// Render.
 
 typedef struct render_context {
 	GLFWwindow *window;
@@ -96,45 +96,19 @@ typedef struct render_context {
 	u32 line_vbo;
 } Render_Context;
 
-typedef struct game_context {
-	f32 time_now;
-	f32 time_last_frame;
-	f32 delta_time;
-
-	u32 jump_key_state;
-	f32 spawn_timer;
-	f32 box_spawn_timer;
-
-	Player player;
-	Enemy enemies[MAX_ENEMIES];
-	Bullet bullets[MAX_BULLETS];
-	Rocket rockets[MAX_ROCKETS];
-	Terrain terrain[10];
-	// One for the fire. One for the box.
-	Trigger triggers[2];
-} Game_Context;
-
-void physics_setup(Game_Context *game_context);
-void physics_tick(f32 delta_time);
-void physics_reset();
-
-void input_key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
-Input_Context *input_setup();
-
 Render_Context *render_setup(const char *title);
-u32 shader_setup();
 void render_square(f32 x, f32 y, f32 width, f32 height, vec4 color);
 void render_sprite(u32 texture, vec3 position, vec2 size, u8 flipped);
+void render_point(vec2 position, vec4 color);
+void render_aabb(AABB aabb, vec4 color);
 u32 render_create_texture(const char *path);
+
+// Input output.
 
 char *read_file_into_buffer(const char *path);
 
-void error_and_exit(i32 code, const char *message);
+// User input.
+
+void input_key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
 
 #endif
-
-
-
-
-
-

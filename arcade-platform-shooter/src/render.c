@@ -1,4 +1,5 @@
 #include "shared.h"
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "../deps/lib/stb_image.h"
 
@@ -8,7 +9,15 @@ static void framebuffer_size_callback(GLFWwindow *window, int width, int height)
 	glViewport(0, 0, width, height);
 }
 
-u32 shader_setup(const char *vert_path, const char *frag_path) {
+static void texture_setup(u32 texture) {
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);   
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+}
+
+static u32 shader_setup(const char *vert_path, const char *frag_path) {
 	int success;
 	char log[512];
 	char *vertex_source = read_file_into_buffer(vert_path);
@@ -90,6 +99,24 @@ void render_square(f32 x, f32 y, f32 width, f32 height, vec4 color) {
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
+void render_point(vec2 position, vec4 color) {
+	mat4x4 model;
+	mat4x4_identity(model);
+
+	mat4x4_translate(model, position[0], position[1], 0);
+
+	glUniformMatrix4fv(glGetUniformLocation(context.shader, "model"), 1, GL_FALSE, &model[0][0]);
+	glUniform4fv(glGetUniformLocation(context.shader, "color"), 1, color);
+
+	glBindTexture(GL_TEXTURE_2D, context.color_texture);
+	glBindVertexArray(context.square_vao);
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+}
+
+void render_aabb(AABB aabb, vec4 color) {
+	render_square(aabb.position[0] - aabb.half_sizes[0], aabb.position[1] - aabb.half_sizes[1], aabb.half_sizes[0] * 2, aabb.half_sizes[1] * 2, color);
+}
+
 void render_sprite(u32 texture, vec3 position, vec2 size, u8 flipped) {
 	mat4x4 model;
 	mat4x4_identity(model);
@@ -105,18 +132,10 @@ void render_sprite(u32 texture, vec3 position, vec2 size, u8 flipped) {
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
-static void setup_texture(u32 texture) {
-	glBindTexture(GL_TEXTURE_2D, texture);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);   
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-}
-
 u32 render_create_texture(const char *path) {
 	u32 texture;
 	glGenTextures(1, &texture);
-	setup_texture(texture);
+	texture_setup(texture);
 	i32 width, height, channel_count;
 	u8 *image_data = stbi_load(path, &width, &height, &channel_count, 0);
 	if (!image_data) {
@@ -138,7 +157,7 @@ Render_Context *render_setup(const char *title) {
 	// setup color texture
 	glGenTextures(1, &context.color_texture);
 	u8 color_bytes[4] = { 255, 255, 255, 255 };
-	setup_texture(context.color_texture);
+	texture_setup(context.color_texture);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, color_bytes);
 
 	stbi_set_flip_vertically_on_load(1);
