@@ -1,4 +1,4 @@
-flags = -Wall -Werror -pedantic -std=c99
+flags = -Wall -pedantic -std=c99
 libs = -lX11 -lglfw -ldl -lm
 inc = -I./deps/include
 

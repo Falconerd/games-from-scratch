@@ -1,4 +1,5 @@
 #include "shared.h"
+#define PI 3.1415f
 
 typedef struct game_context {
 	f32 time_now;
@@ -14,178 +15,108 @@ static Game_Context context = {0};
 
 static const char *GAME_TITLE = "Mega Box Crate";
 static const Render_Context *render_context;
+static const Physics_Context *physics_context;
+static const Entity_Context *entity_context;
 
-#define PI 3.1415f
-
-void example_aabb_aabb() {
-	Body a = {{{128, 50}, {32, 8}}};
-	Body b = {{{128, 50}, {8, 8}}};
-	AABB c = {{0, 0}, {8, 8}};
-	f32 angle = 0;
-
-	while (!glfwWindowShouldClose(render_context->window)) {
-		context.time_now = glfwGetTime();
-		context.delta_time = context.time_now - context.time_last_frame;
-		context.time_last_frame = context.time_now;
-
-		glfwPollEvents();
-		glClearColor(0.0, 0.0, 0.0, 1);
-		glClear(GL_COLOR_BUFFER_BIT);
-
-		// Update physics.
-
-		glUseProgram(render_context->shader);
-		glUniformMatrix4fv(glGetUniformLocation(render_context->shader, "projection"), 1, GL_FALSE, &render_context->projection[0][0]);
-
-		angle += 0.2f * PI * context.delta_time;
-		b.aabb.position[0] = 128 + cosf(angle) * 48.0f;
-		b.aabb.position[1] = 50 + sinf(angle * 2.4f) * 12.0f;
-
-		Hit hit = aabb_intersect_aabb(&a.aabb, &b.aabb);
-
-		// Render terrain.
-		// Render entities.
-		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-		render_aabb(a.aabb, (vec4){1, 1, 1, 1});
-		if (hit.body != NULL) {
-			render_aabb(b.aabb, (vec4){1, 0, 0, 1});
-			c.position[0] = b.aabb.position[0] + hit.delta[0];
-			c.position[1] = b.aabb.position[1] + hit.delta[1];
-			render_aabb(c, (vec4){1, 1, 0, 1});
-			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-			render_point(hit.position, (vec4){1, 1, 0, 1});
-		} else {
-			render_aabb(b.aabb, (vec4){0, 1, 0, 1});
-		}
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-		glfwSwapBuffers(render_context->window);
-	}
-}
-
-void example_aabb_segment() {
-	Body box = {{{128, 128}, {8, 8}}};
-	f32 angle = 0;
-
-	while (!glfwWindowShouldClose(render_context->window)) {
-		context.time_now = glfwGetTime();
-		context.delta_time = context.time_now - context.time_last_frame;
-		context.time_last_frame = context.time_now;
-
-		glfwPollEvents();
-		glClearColor(0.0, 0.0, 0.0, 1);
-		glClear(GL_COLOR_BUFFER_BIT);
-
-		// Update physics.
-
-		glUseProgram(render_context->shader);
-		glUniformMatrix4fv(glGetUniformLocation(render_context->shader, "projection"), 1, GL_FALSE, &render_context->projection[0][0]);
-
-		angle += 0.5f * PI * context.delta_time;
-
-		vec2 pos1 = {128 + cosf(angle) * 32.0f, 128 + sinf(angle) * 32.0f};
-		vec2 pos2 = {128 + sinf(angle) * 16.0f, 128 + cosf(angle) * 16.0f};
-		vec2 delta = {pos2[0] - pos1[0], pos2[1] - pos1[1]};
-		Hit hit = aabb_intersect_segment(&box.aabb, pos1, delta, 0, 0);
-		vec2 dir;
-		vec2_norm(dir, delta);
-		f32 length = vec2_len(delta);
-
-		render_aabb(box.aabb, (vec4){1, 1, 1, 1});
-
-		if (hit.body != NULL) {
-			render_ray(pos1, dir, length, (vec4){1, 0, 0, 1}, 1);
-			render_segment(pos1, hit.position, (vec4){1, 1, 0, 1});
-			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-			render_point(hit.position, (vec4){1, 1, 0, 1});
-			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-			render_ray(hit.position, hit.normal, 6, (vec4){1, 1, 0, 1}, 0);
-		} else {
-			render_ray(pos1, dir, length, (vec4){0, 1, 0, 1}, 1);
-		}
-
-		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
-		glfwSwapBuffers(render_context->window);
-	}
-}
-
-void example_aabb_aabb_sweep() {
-	f32 angle = 0;
-	AABB static_box = {{128, 112}, {56, 8}};
-	AABB sweep_box_array[2] = {
-		{{56, 124}, {8, 8}},
-		{{196, 88}, {8, 8}},
-	};
-	vec2 sweep_box_delta_array[2] = {{32, -6}, {-16, 48}};
-	AABB temp_box = {{0, 0}, {8, 8}};
-
-	while (!glfwWindowShouldClose(render_context->window)) {
-		context.time_now = glfwGetTime();
-		context.delta_time = context.time_now - context.time_last_frame;
-		context.time_last_frame = context.time_now;
-
-		glfwPollEvents();
-		glClearColor(0.0, 0.0, 0.0, 1);
-		glClear(GL_COLOR_BUFFER_BIT);
-
-		// Update physics.
-
-		glUseProgram(render_context->shader);
-		glUniformMatrix4fv(glGetUniformLocation(render_context->shader, "projection"), 1, GL_FALSE, &render_context->projection[0][0]);
-
-		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
-		angle += 0.5f * PI * context.delta_time;
-		render_aabb(static_box, (vec4){1, 1, 1, 1});
-
-		f32 factor = (cosf(angle) + 1) * 0.5f;
-
-		for (u32 i = 0; i < 2; ++i) {
-			AABB *box = &sweep_box_array[i];
-			vec2 delta = {sweep_box_delta_array[i][0], sweep_box_delta_array[i][1]};
-			delta[0] *= factor;
-			delta[1] *= factor;
-			Sweep sweep = aabb_sweep_aabb(&static_box, box, delta);
-			vec2 direction;
-			vec2_norm(direction, delta);
-			f32 length = vec2_len(delta);
-			render_aabb(*box, (vec4){1, 1, 1, 1});
-
-			if (sweep.hit.body != NULL) {
-				render_ray(box->position, direction, length, (vec4){1, 0, 0, 1}, 1);
-				temp_box.position[0] = box->position[0] + delta[0];
-				temp_box.position[1] = box->position[1] + delta[1];
-				render_aabb(temp_box, (vec4){1, 0, 0, 1});
-
-				temp_box.position[0] = sweep.position[0];
-				temp_box.position[1] = sweep.position[1];
-				render_aabb(temp_box, (vec4){1, 1, 0, 1});
-				glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-				render_point(sweep.hit.position, (vec4){1, 1, 0, 1});
-				glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-				render_ray(sweep.hit.position, sweep.hit.normal, 2, (vec4){1, 1, 0, 1}, 0);
-			} else {
-				temp_box.position[0] = sweep.position[0];
-				temp_box.position[1] = sweep.position[1];
-				render_aabb(temp_box, (vec4){0, 1, 0, 1});
-				render_ray(box->position, direction, length, (vec4){0, 1, 0, 1}, 1);
-			}
-		}
-
-		glfwSwapBuffers(render_context->window);
-	}
-}
+static u32 TEXTURE_TERRAIN;
+static u32 TEXTURE_PLAYER;
 
 int main(void) {
 	srand(time(NULL));
 
+	physics_context = physics_setup(256, 10);
 	render_context = render_setup(GAME_TITLE);
+	entity_context = entity_setup(256);
 
-	// example_aabb_aabb();
-	// example_aabb_segment();
-	example_aabb_aabb_sweep();
-	// Body body = {{{0, 0}, {8, 8}}};
-	// Hit hit = aabb_intersect_segment(&body.aabb, (vec2){-16, -16}, (vec2){32, 0});
-	// printf("%p\n", (void*)hit.body);
+	// Setup textures.
+	{
+		TEXTURE_TERRAIN = render_texture_create("./assets/terrain.png");
+		TEXTURE_PLAYER = render_texture_create("./assets/player.png");
+	}
+
+	// Setup player.
+	Entity *entity_player = entity_create(TEXTURE_PLAYER, (vec2){0, 0}, (vec2){32, 10});
+	Body *body_player = physics_body_create((vec2){48, 38}, (vec2){4, 4});
+	body_player->velocity[0] = 2;
+
+	// Setup terrain.
+	{
+		// Bottom.
+		physics_static_body_create((vec2){128, 16}, (vec2){256, 16});
+		// physics_static_body_create((vec2){200, 16}, (vec2){56, 16});
+		// Top.
+		physics_static_body_create((vec2){56, HEIGHT - 6.5f}, (vec2){56, 6.5f});
+		physics_static_body_create((vec2){200, HEIGHT - 6.5f}, (vec2){56, 6.5f});
+		// Left.
+		physics_static_body_create((vec2){6.5f, HEIGHT / 2 + 9.5f}, (vec2){6.5f, HEIGHT / 2 - 6.5f - 16});
+		// Right.
+		physics_static_body_create((vec2){WIDTH - 6.5f, HEIGHT / 2 + 9.5f}, (vec2){6.5f, HEIGHT / 2 - 6.5f - 16});
+	}
+
+	while (!glfwWindowShouldClose(render_context->window)) {
+		context.time_now = glfwGetTime();
+		context.delta_time = context.time_now - context.time_last_frame;
+		context.time_last_frame = context.time_now;
+
+		// Input.
+		{
+			body_player->velocity[0] = 0;
+			body_player->velocity[1] = 0;
+			if (glfwGetKey(render_context->window, GLFW_KEY_T) == GLFW_PRESS) {
+				body_player->velocity[0] += 1;
+			}
+			if (glfwGetKey(render_context->window, GLFW_KEY_R) == GLFW_PRESS) {
+				body_player->velocity[0] -= 1;
+			}
+			if (glfwGetKey(render_context->window, GLFW_KEY_F) == GLFW_PRESS) {
+				body_player->velocity[1] += 1;
+			}
+			if (glfwGetKey(render_context->window, GLFW_KEY_S) == GLFW_PRESS) {
+				body_player->velocity[1] -= 1;
+			}
+		}
+
+		glfwPollEvents();
+		glClearColor(0.0, 0.0, 0.0, 1);
+		glClear(GL_COLOR_BUFFER_BIT);
+
+		glUseProgram(render_context->shader);
+		glUniformMatrix4fv(glGetUniformLocation(render_context->shader, "projection"), 1, GL_FALSE, &render_context->projection[0][0]);
+
+		// Render terrain.
+		// render_sprite(TEXTURE_TERRAIN, (vec3){0, 0, 0}, (vec2){256, 224}, 0);
+
+		// Update physics.
+
+		physics_tick(context.delta_time);
+
+		for (u32 i = 0; i < physics_context->body_array_count; ++i) {
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+			render_aabb(physics_context->body_array[i].aabb, (vec4){0, 1, 0, 1});
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		}
+
+		for (u32 i = 0; i < physics_context->static_body_array_count; ++i) {
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+			render_aabb(physics_context->static_body_array[i].aabb, (vec4){1, 1, 1, 1});
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		}
+
+
+		// Render player.
+		{
+			vec3 position = {body_player->aabb.position[0] - entity_player->sprite_size[0] * 0.5f, body_player->aabb.position[1] - entity_player->sprite_size[1] * 0.5f + 1, 0};
+			// render_sprite(entity_player->texture, position, entity_player->sprite_size, 0);
+		}
+
+		// Render entities.
+		for (u32 i = 1; i < entity_context->entity_array_count; ++i) {
+			Entity *entity = &entity_context->entity_array[i];
+			Body *body = &physics_context->body_array[entity->body_id];
+			vec3 position = {body->aabb.position[0], body->aabb.position[1], 0};
+			render_sprite(entity->texture, position, entity->sprite_size, 0);
+		}
+
+		glfwSwapBuffers(render_context->window);
+	}
 }

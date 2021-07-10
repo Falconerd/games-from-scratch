@@ -172,7 +172,7 @@ void render_sprite(u32 texture, vec3 position, vec2 size, u8 flipped) {
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
-u32 render_create_texture(const char *path) {
+u32 render_texture_create(const char *path) {
 	u32 texture;
 	glGenTextures(1, &texture);
 	texture_setup(texture);
