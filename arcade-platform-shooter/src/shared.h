@@ -23,6 +23,8 @@
 
 // Globals and flags.
 
+#define GAME_TITLE "Mega Box Crate"
+
 #define DEBUG 1
 
 #define SCALE 4
@@ -31,6 +33,11 @@
 
 #define GRAVITY -30
 #define TERMINAL_VELOCITY -240
+
+#define MAX_ENTITIES 256
+#define MAX_STATIC_BODIES 20
+#define MAX_BODIES 256
+#define MAX_TRIGGERS 10
 
 void error_and_exit(i32 code, const char *message);
 f32 fsign(f32 a);
@@ -44,31 +51,43 @@ typedef struct aabb {
 	vec2 last_position;
 } AABB;
 
-typedef struct body {
-	AABB aabb;
-	vec2 velocity;
-	u32 id;
-	u8 is_grounded;
-	u8 layer_mask;
-} Body;
-
-typedef struct static_body {
-	AABB aabb;
-	u8 layer_mask;
-} Static_Body;
+typedef struct body Body;
+typedef struct static_body Static_Body;
 
 typedef struct hit {
-	Body *body;
+	Body *self;
+	Body *other;
 	vec2 position;
 	vec2 delta;
 	vec2 normal;
 	f32 time;
 } Hit;
 
-typedef void (*On_Trigger_Function)(Hit, Body*);
+typedef void (*On_Collide_Function)(Hit hit);
+typedef void (*On_Collide_Static_Function)(Hit hit);
+
+struct body {
+	AABB aabb;
+	vec2 velocity;
+	u32 id;
+	u32 entity_id;
+	On_Collide_Function on_collide;
+	On_Collide_Static_Function on_collide_static;
+	u8 is_grounded;
+	u8 is_kinematic;
+	u8 layer_mask;
+};
+
+struct static_body {
+	AABB aabb;
+	u8 layer_mask;
+};
+
+typedef void (*On_Trigger_Function)(Hit);
 
 typedef struct trigger {
 	AABB aabb;
+	u32 id;
 	On_Trigger_Function on_trigger;
 } Trigger;
 
@@ -90,9 +109,10 @@ typedef struct physics_context {
 	Trigger *trigger_array;
 } Physics_Context;
 
-Physics_Context *physics_setup(u32 max_bodies, u32 max_static_bodies, u32 max_triggers);
+Physics_Context *physics_setup();
 void physics_tick(f32 delta_time);
 Body *physics_body_create(f32 x, f32 y, f32 half_width, f32 half_height);
+void physics_body_destroy(u32 index);
 Static_Body *physics_static_body_create(f32 x, f32 y, f32 half_width, f32 half_height);
 Trigger *physics_trigger_create(f32 x, f32 y, f32 half_width, f32 half_height);
 
@@ -106,7 +126,9 @@ typedef struct entity {
 	u32 texture;
 	vec2 sprite_offset;
 	vec2 sprite_size;
+	u32 id;
 	u32 body_id;
+	u8 is_flipped;
 } Entity;
 
 typedef struct entity_context {
@@ -115,8 +137,9 @@ typedef struct entity_context {
 	u32 entity_array_max;
 } Entity_Context;
 
-Entity_Context *entity_setup(u32 max_entities);
+Entity_Context *entity_setup();
 Entity *entity_create(u32 texture, f32 offset_x, f32 offset_y, f32 sprite_size_x, f32 sprite_size_y);
+void entity_destroy(u32 index);
 
 // Render.
 
@@ -132,7 +155,7 @@ typedef struct render_context {
 	u32 line_vbo;
 } Render_Context;
 
-Render_Context *render_setup(const char *title);
+Render_Context *render_setup();
 void render_square(f32 x, f32 y, f32 width, f32 height, vec4 color);
 void render_sprite(u32 texture, vec3 position, vec2 size, u8 flipped);
 void render_point(vec2 position, vec4 color);

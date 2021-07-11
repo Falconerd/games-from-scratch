@@ -56,32 +56,6 @@ static u32 shader_setup(const char *vert_path, const char *frag_path) {
 	return shader;
 }
 
-static i32 window_setup(const char *title) {
-	glfwSetErrorCallback(error_and_exit);
-	if (!glfwInit()) {
-		error_and_exit(-1, "Failed to init GLFW");
-	}
-
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-
-	context.window = glfwCreateWindow(WIDTH * SCALE, HEIGHT * SCALE, title, NULL, NULL);
-	if (!context.window) {
-		error_and_exit(-1, "Failed to create window");
-	}
-
-	glfwMakeContextCurrent(context.window);
-
-	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-		error_and_exit(-1, "Failed to init GLAD");
-	}
-
-	glViewport(0, 0, WIDTH * SCALE, HEIGHT * SCALE);
-	glfwSetFramebufferSizeCallback(context.window, framebuffer_size_callback);
-
-	return 0;
-}
-
 void render_square(f32 x, f32 y, f32 width, f32 height, vec4 color) {
 	mat4x4 model;
 	mat4x4_identity(model);
@@ -155,12 +129,12 @@ void render_ray(vec2 start, vec2 direction, f32 length, vec4 color, u8 arrow) {
 	}
 }
 
-void render_sprite(u32 texture, vec3 position, vec2 size, u8 flipped) {
+void render_sprite(u32 texture, vec3 position, vec2 size, u8 is_flipped) {
 	mat4x4 model;
 	mat4x4_identity(model);
 
 	mat4x4_translate(model, position[0] + size[0] * 0.5f, position[1] + size[1] * 0.5f, 0.0f);
-	mat4x4_scale_aniso(model, model, flipped ? -size[0] : size[0], size[1], 1.0f);
+	mat4x4_scale_aniso(model, model, is_flipped ? -size[0] : size[0], size[1], 1.0f);
 
 	glUniformMatrix4fv(glGetUniformLocation(context.shader, "model"), 1, GL_FALSE, &model[0][0]);
 	glUniform4fv(glGetUniformLocation(context.shader, "color"), 1, (vec4){1.0f, 1.0f, 1.0f, 1.0f});
@@ -184,23 +158,44 @@ u32 render_texture_create(const char *path) {
 	return texture;
 }
 
-Render_Context *render_setup(const char *title) {
-	window_setup(title);
+Render_Context *render_setup() {
+	// Setup the window.
+	glfwSetErrorCallback(error_and_exit);
+	if (!glfwInit()) {
+		error_and_exit(-1, "Failed to init GLFW");
+	}
 
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+
+	context.window = glfwCreateWindow(WIDTH * SCALE, HEIGHT * SCALE, GAME_TITLE, NULL, NULL);
+	if (!context.window) {
+		error_and_exit(-1, "Failed to create window");
+	}
+
+	glfwMakeContextCurrent(context.window);
+
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+		error_and_exit(-1, "Failed to init GLAD");
+	}
+
+	glViewport(0, 0, WIDTH * SCALE, HEIGHT * SCALE);
+	glfwSetFramebufferSizeCallback(context.window, framebuffer_size_callback);
+
+	// Setup shader and buffers.
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_BLEND);
 
 	context.shader = shader_setup("./shaders/default.vert", "./shaders/default.frag");
 
-	// setup color texture
+	// Setup color texture.
 	glGenTextures(1, &context.color_texture);
-	u8 color_bytes[4] = { 255, 255, 255, 255 };
 	texture_setup(context.color_texture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, color_bytes);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, (u8[4]){255, 255, 255, 255});
 
 	stbi_set_flip_vertically_on_load(1);
 
-	//      position         tex coords
+	//      Position         Tex coords
 	f32 square_vertices[] = {
 		 0.5f,  0.5f, 0, 1.0f, 1.0f,
 		 0.5f, -0.5f, 0, 1.0f, 0.0f,

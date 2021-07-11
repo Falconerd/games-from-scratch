@@ -1,49 +1,60 @@
 #include "shared.h"
-#define PI 3.1415f
 
 typedef struct game_context {
 	f32 time_now;
 	f32 time_last_frame;
 	f32 delta_time;
 
-	u32 jump_key_state;
 	f32 spawn_timer;
 	f32 box_spawn_timer;
+	u8 jump_key_state;
 } Game_Context;
 
 static Game_Context context = {0};
 
-static const char *GAME_TITLE = "Mega Box Crate";
 static const Render_Context *render_context;
 static const Physics_Context *physics_context;
 static const Entity_Context *entity_context;
 
 static u32 TERRAIN_TEXTURE;
 static u32 PLAYER_TEXTURE;
+static u32 BULLET_TEXTURE;
+static u32 BOX_TEXTURE;
 
 static u8 PLAYER_MASK = 1;
 static u8 ENEMY_MASK = 2;
 
-static void on_fire_trigger(Hit hit, Body *other) {
-	printf("%p vs %p\n", (void*)hit.body, (void*)other);
+static u8 entities_to_kill_array[MAX_ENTITIES];
+static u8 bodies_to_kill_array[MAX_BODIES];
+
+static void on_fire_trigger(Hit hit) {
+}
+
+static void on_bullet_collide(Hit hit) {
+	printf("%u %u\n", hit.self->id, hit.self->entity_id);
+	entities_to_kill_array[hit.self->entity_id] = 1;
+	bodies_to_kill_array[hit.self->id] = 1;
 }
 
 int main(void) {
 	srand(time(NULL));
 
 	// Setup contexts.
-	physics_context = physics_setup(256, 16, 10);
-	render_context = render_setup(GAME_TITLE);
-	entity_context = entity_setup(256);
+	physics_context = physics_setup();
+	render_context = render_setup();
+	entity_context = entity_setup();
 
 	// Setup textures.
 	TERRAIN_TEXTURE = render_texture_create("./assets/terrain.png");
 	PLAYER_TEXTURE = render_texture_create("./assets/player.png");
+	BULLET_TEXTURE = render_texture_create("./assets/bullet.png");
+	BOX_TEXTURE = render_texture_create("./assets/box.png");
 
 	// Setup player.
 	Entity *player_entity = entity_create(PLAYER_TEXTURE, 32, 10, -16, -3.5f);
 	Body *player_body = physics_body_create(48, 112, 4, 4);
 	player_entity->body_id = player_body->id;
+	player_body->entity_id = player_entity->id;
 	player_body->layer_mask |= PLAYER_MASK;
 
 	// Setup terrain.
@@ -95,12 +106,15 @@ int main(void) {
 
 		if (glfwGetKey(render_context->window, GLFW_KEY_T) == GLFW_PRESS) {
 			horizontal_velocity += 100;
+			player_entity->is_flipped = 0;
 		}
 
 		if (glfwGetKey(render_context->window, GLFW_KEY_R) == GLFW_PRESS) {
 			horizontal_velocity -= 100;
+			player_entity->is_flipped = 1;
 		}
 
+		// Jump.
 		if (glfwGetKey(render_context->window, GLFW_KEY_F) == GLFW_PRESS) {
 			if (player_body->is_grounded) {
 				player_body->is_grounded = 0;
@@ -109,11 +123,38 @@ int main(void) {
 			}
 		}
 
+		// Shoot.
+		if (glfwGetKey(render_context->window, GLFW_KEY_E) == GLFW_PRESS) {
+			Entity *bullet_entity = entity_create(BULLET_TEXTURE, 3, 3, -1.5f, -1.5f);
+			Body *bullet_body = physics_body_create(player_body->aabb.position[0], player_body->aabb.position[1], 1.5f, 1.5f);
+			bullet_entity->body_id = bullet_body->id;
+
+			bullet_body->is_kinematic = 1;
+			bullet_body->entity_id = bullet_entity->id;
+			bullet_body->velocity[0] = player_entity->is_flipped ? -400 : 400;
+			bullet_body->on_collide_static = on_bullet_collide;
+			printf("spawn bullet (%u) [%u] | (%u) [%u]\n", bullet_entity->id, bullet_body->id, bullet_body->entity_id, bullet_entity->body_id);
+		}
+
 		player_body->velocity[0] = horizontal_velocity;
 		player_body->velocity[1] = vertical_velocity;
 
 		// Update physics.
 		physics_tick(context.delta_time);
+
+		// Kill bodies and entities.
+		for (u32 i = MAX_BODIES - 1; i > 0; --i)
+			if (bodies_to_kill_array[i]) {
+				physics_body_destroy(i);
+				bodies_to_kill_array[i] = 0;
+			}
+
+		for (u32 i = MAX_ENTITIES - 1; i > 0; --i)
+			if (entities_to_kill_array[i]) {
+				entity_destroy(i);
+				entities_to_kill_array[i] = 0;
+			}
+
 
 		// Clear screen, etc.
 		glfwPollEvents();
@@ -128,7 +169,7 @@ int main(void) {
 			Entity *entity = &entity_context->entity_array[i];
 			Body *body = &physics_context->body_array[entity->body_id];
 			vec3 position = {body->aabb.position[0] + entity->sprite_offset[0], body->aabb.position[1] + entity->sprite_offset[1], 0};
-			render_sprite(entity->texture, position, entity->sprite_size, 0);
+			render_sprite(entity->texture, position, entity->sprite_size, entity->is_flipped);
 		}
 
 #if DEBUG
