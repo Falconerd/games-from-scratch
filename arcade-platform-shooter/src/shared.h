@@ -23,9 +23,14 @@
 
 // Globals and flags.
 
+#define DEBUG 1
+
 #define SCALE 4
 #define WIDTH 256
 #define HEIGHT 224
+
+#define GRAVITY -30
+#define TERMINAL_VELOCITY -240
 
 void error_and_exit(i32 code, const char *message);
 f32 fsign(f32 a);
@@ -44,11 +49,12 @@ typedef struct body {
 	vec2 velocity;
 	u32 id;
 	u8 is_grounded;
+	u8 layer_mask;
 } Body;
 
 typedef struct static_body {
 	AABB aabb;
-	u32 id;
+	u8 layer_mask;
 } Static_Body;
 
 typedef struct hit {
@@ -58,6 +64,13 @@ typedef struct hit {
 	vec2 normal;
 	f32 time;
 } Hit;
+
+typedef void (*On_Trigger_Function)(Hit, Body*);
+
+typedef struct trigger {
+	AABB aabb;
+	On_Trigger_Function on_trigger;
+} Trigger;
 
 typedef struct sweep {
 	Hit hit;
@@ -72,12 +85,16 @@ typedef struct physics_context {
 	u32 static_body_array_count;
 	u32 static_body_array_max;
 	Static_Body *static_body_array;
+	u32 trigger_array_count;
+	u32 trigger_array_max;
+	Trigger *trigger_array;
 } Physics_Context;
 
-Physics_Context *physics_setup(u32 max_bodies, u32 max_static_bodies);
+Physics_Context *physics_setup(u32 max_bodies, u32 max_static_bodies, u32 max_triggers);
 void physics_tick(f32 delta_time);
-Body *physics_body_create(vec2 position, vec2 half_sizes);
-Static_Body *physics_static_body_create(vec2 position, vec2 half_sizes);
+Body *physics_body_create(f32 x, f32 y, f32 half_width, f32 half_height);
+Static_Body *physics_static_body_create(f32 x, f32 y, f32 half_width, f32 half_height);
+Trigger *physics_trigger_create(f32 x, f32 y, f32 half_width, f32 half_height);
 
 Hit aabb_intersect_aabb(AABB *self, AABB *other);
 Hit aabb_intersect_segment(AABB *self, vec2 position, vec2 delta, f32 padding_x, f32 padding_y);
@@ -99,7 +116,7 @@ typedef struct entity_context {
 } Entity_Context;
 
 Entity_Context *entity_setup(u32 max_entities);
-Entity *entity_create(u32 texture, vec2 sprite_offset, vec2 sprite_size);
+Entity *entity_create(u32 texture, f32 offset_x, f32 offset_y, f32 sprite_size_x, f32 sprite_size_y);
 
 // Render.
 

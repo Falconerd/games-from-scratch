@@ -70,8 +70,6 @@ static i32 window_setup(const char *title) {
 		error_and_exit(-1, "Failed to create window");
 	}
 
-	glfwSetKeyCallback(context.window, input_key_callback);
-
 	glfwMakeContextCurrent(context.window);
 
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
@@ -248,6 +246,9 @@ Render_Context *render_setup(const char *title) {
 	glBindVertexArray(0);
 
 	mat4x4_ortho(context.projection, 0, WIDTH, 0, HEIGHT, -2.0f, 2.0f);
+
+	glUseProgram(context.shader);
+	glUniformMatrix4fv(glGetUniformLocation(context.shader, "projection"), 1, GL_FALSE, &context.projection[0][0]);
 
 	return &context;
 }

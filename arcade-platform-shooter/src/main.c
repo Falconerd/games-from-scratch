@@ -18,78 +18,120 @@ static const Render_Context *render_context;
 static const Physics_Context *physics_context;
 static const Entity_Context *entity_context;
 
-static u32 TEXTURE_TERRAIN;
-static u32 TEXTURE_PLAYER;
+static u32 TERRAIN_TEXTURE;
+static u32 PLAYER_TEXTURE;
+
+static u8 PLAYER_MASK = 1;
+static u8 ENEMY_MASK = 2;
+
+static void on_fire_trigger(Hit hit, Body *other) {
+	printf("%p vs %p\n", (void*)hit.body, (void*)other);
+}
 
 int main(void) {
 	srand(time(NULL));
 
-	physics_context = physics_setup(256, 10);
+	// Setup contexts.
+	physics_context = physics_setup(256, 16, 10);
 	render_context = render_setup(GAME_TITLE);
 	entity_context = entity_setup(256);
 
 	// Setup textures.
-	{
-		TEXTURE_TERRAIN = render_texture_create("./assets/terrain.png");
-		TEXTURE_PLAYER = render_texture_create("./assets/player.png");
-	}
+	TERRAIN_TEXTURE = render_texture_create("./assets/terrain.png");
+	PLAYER_TEXTURE = render_texture_create("./assets/player.png");
 
 	// Setup player.
-	Entity *entity_player = entity_create(TEXTURE_PLAYER, (vec2){0, 0}, (vec2){32, 10});
-	Body *body_player = physics_body_create((vec2){48, 38}, (vec2){4, 4});
-	body_player->velocity[0] = 2;
+	Entity *player_entity = entity_create(PLAYER_TEXTURE, 32, 10, -16, -3.5f);
+	Body *player_body = physics_body_create(48, 112, 4, 4);
+	player_entity->body_id = player_body->id;
+	player_body->layer_mask |= PLAYER_MASK;
 
 	// Setup terrain.
-	{
-		// Bottom.
-		physics_static_body_create((vec2){128, 16}, (vec2){256, 16});
-		// physics_static_body_create((vec2){200, 16}, (vec2){56, 16});
-		// Top.
-		physics_static_body_create((vec2){56, HEIGHT - 6.5f}, (vec2){56, 6.5f});
-		physics_static_body_create((vec2){200, HEIGHT - 6.5f}, (vec2){56, 6.5f});
-		// Left.
-		physics_static_body_create((vec2){6.5f, HEIGHT / 2 + 9.5f}, (vec2){6.5f, HEIGHT / 2 - 6.5f - 16});
-		// Right.
-		physics_static_body_create((vec2){WIDTH - 6.5f, HEIGHT / 2 + 9.5f}, (vec2){6.5f, HEIGHT / 2 - 6.5f - 16});
-	}
+	// Bottom.
+	physics_static_body_create(32, 18, 32, 18);
+	physics_static_body_create(88, 10, 24, 10);
+	physics_static_body_create(WIDTH - 32, 18, 32, 18);
+	physics_static_body_create(WIDTH - 88, 10, 24, 10);
+	// Top.
+	physics_static_body_create(56, HEIGHT - 6.5f, 56, 6.5f);
+	physics_static_body_create(200, HEIGHT - 6.5f, 56, 6.5f);
+	// Left.
+	physics_static_body_create(6.5f, HEIGHT / 2, 6.5f, HEIGHT / 2);
+	// Right.
+	physics_static_body_create(WIDTH - 6.5f, HEIGHT / 2, 6.5f, HEIGHT / 2);
+	// Bottom platform.
+	physics_static_body_create(128, 71, 64, 6.5f);
+	// Top platform.
+	physics_static_body_create(128, 167, 64, 6.5f);
+	// Left platform.
+	physics_static_body_create(32, 119, 32, 6.5f);
+	// Right platform.
+	physics_static_body_create(WIDTH - 32, 119, 32, 6.5f);
+	// Top player-only collisions.
+	Static_Body *static_body = physics_static_body_create(128, HEIGHT - 6.5f, 16, 6.5f);
+	static_body->layer_mask |= PLAYER_MASK;
+
+	// Setup fire trigger.
+	Trigger *trigger = physics_trigger_create(128, 8, 16, 8);
+	trigger->on_trigger = on_fire_trigger;
 
 	while (!glfwWindowShouldClose(render_context->window)) {
 		context.time_now = glfwGetTime();
 		context.delta_time = context.time_now - context.time_last_frame;
 		context.time_last_frame = context.time_now;
 
-		// Input.
-		{
-			body_player->velocity[0] = 0;
-			body_player->velocity[1] = 0;
-			if (glfwGetKey(render_context->window, GLFW_KEY_T) == GLFW_PRESS) {
-				body_player->velocity[0] += 1;
-			}
-			if (glfwGetKey(render_context->window, GLFW_KEY_R) == GLFW_PRESS) {
-				body_player->velocity[0] -= 1;
-			}
-			if (glfwGetKey(render_context->window, GLFW_KEY_F) == GLFW_PRESS) {
-				body_player->velocity[1] += 1;
-			}
-			if (glfwGetKey(render_context->window, GLFW_KEY_S) == GLFW_PRESS) {
-				body_player->velocity[1] -= 1;
+		// Handle user input.
+		f32 horizontal_velocity = 0;
+		f32 vertical_velocity = player_body->velocity[1];
+
+		if (glfwGetKey(render_context->window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+			glfwSetWindowShouldClose(render_context->window, GLFW_TRUE);
+
+		// Variable jump height.
+		if (glfwGetKey(render_context->window, GLFW_KEY_F) == GLFW_RELEASE && context.jump_key_state == GLFW_PRESS) {
+			vertical_velocity *= 0.5f;
+			context.jump_key_state = GLFW_RELEASE;
+		}
+
+		if (glfwGetKey(render_context->window, GLFW_KEY_T) == GLFW_PRESS) {
+			horizontal_velocity += 100;
+		}
+
+		if (glfwGetKey(render_context->window, GLFW_KEY_R) == GLFW_PRESS) {
+			horizontal_velocity -= 100;
+		}
+
+		if (glfwGetKey(render_context->window, GLFW_KEY_F) == GLFW_PRESS) {
+			if (player_body->is_grounded) {
+				player_body->is_grounded = 0;
+				context.jump_key_state = GLFW_PRESS;
+				vertical_velocity = 500;
 			}
 		}
 
+		player_body->velocity[0] = horizontal_velocity;
+		player_body->velocity[1] = vertical_velocity;
+
+		// Update physics.
+		physics_tick(context.delta_time);
+
+		// Clear screen, etc.
 		glfwPollEvents();
 		glClearColor(0.0, 0.0, 0.0, 1);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		glUseProgram(render_context->shader);
-		glUniformMatrix4fv(glGetUniformLocation(render_context->shader, "projection"), 1, GL_FALSE, &render_context->projection[0][0]);
-
 		// Render terrain.
-		// render_sprite(TEXTURE_TERRAIN, (vec3){0, 0, 0}, (vec2){256, 224}, 0);
+		render_sprite(TERRAIN_TEXTURE, (vec3){0, 0, 0}, (vec2){256, 224}, 0);
 
-		// Update physics.
+		// Render entities.
+		for (u32 i = 0; i < entity_context->entity_array_count; ++i) {
+			Entity *entity = &entity_context->entity_array[i];
+			Body *body = &physics_context->body_array[entity->body_id];
+			vec3 position = {body->aabb.position[0] + entity->sprite_offset[0], body->aabb.position[1] + entity->sprite_offset[1], 0};
+			render_sprite(entity->texture, position, entity->sprite_size, 0);
+		}
 
-		physics_tick(context.delta_time);
-
+#if DEBUG
 		for (u32 i = 0; i < physics_context->body_array_count; ++i) {
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 			render_aabb(physics_context->body_array[i].aabb, (vec4){0, 1, 0, 1});
@@ -102,20 +144,12 @@ int main(void) {
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		}
 
-
-		// Render player.
-		{
-			vec3 position = {body_player->aabb.position[0] - entity_player->sprite_size[0] * 0.5f, body_player->aabb.position[1] - entity_player->sprite_size[1] * 0.5f + 1, 0};
-			// render_sprite(entity_player->texture, position, entity_player->sprite_size, 0);
+		for (u32 i = 0; i < physics_context->trigger_array_count; ++i) {
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+			render_aabb(physics_context->trigger_array[i].aabb, (vec4){1, 1, 0, 1});
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		}
-
-		// Render entities.
-		for (u32 i = 1; i < entity_context->entity_array_count; ++i) {
-			Entity *entity = &entity_context->entity_array[i];
-			Body *body = &physics_context->body_array[entity->body_id];
-			vec3 position = {body->aabb.position[0], body->aabb.position[1], 0};
-			render_sprite(entity->texture, position, entity->sprite_size, 0);
-		}
+#endif
 
 		glfwSwapBuffers(render_context->window);
 	}

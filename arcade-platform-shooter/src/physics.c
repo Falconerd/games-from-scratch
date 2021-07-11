@@ -3,12 +3,15 @@
 static Physics_Context context = {0};
 static Body **body_ptr_array;
 
-Physics_Context *physics_setup(u32 max_bodies, u32 max_static_bodies) {
+Physics_Context *physics_setup(u32 max_bodies, u32 max_static_bodies, u32 max_triggers) {
 	context.body_array_max = max_bodies;
 	context.body_array = malloc(max_bodies * sizeof(*context.body_array));
 
 	context.static_body_array_max = max_static_bodies;
 	context.static_body_array = malloc(max_static_bodies * sizeof(*context.static_body_array));
+
+	context.trigger_array_max = max_triggers;
+	context.trigger_array = malloc(max_triggers * sizeof(*context.trigger_array));
 
 	body_ptr_array = malloc(max_bodies * sizeof(void*));
 
@@ -162,32 +165,40 @@ Sweep aabb_sweep_into(AABB *self, Static_Body *body_array, u32 length, vec2 delt
 	return nearest;
 }
 
-Body *physics_body_create(vec2 position, vec2 half_sizes) {
+Body *physics_body_create(f32 x, f32 y, f32 half_width, f32 half_height) {
 	if (context.body_array_count == context.body_array_max) {
 		error_and_exit(EXIT_FAILURE, "No bodies left.\n");
 	}
 
 	u32 index = context.body_array_count++;
-	Body *body = &context.body_array[index];
-	body->id = index;
-	memcpy(body->aabb.position, position, sizeof(vec2));
-	memcpy(body->aabb.half_sizes, half_sizes, sizeof(vec2));
+	Body body = {{{x, y}, {half_width, half_height}}};
+	context.body_array[index] = body;
 
-	return body;
+	return &context.body_array[index];
 }
 
-Static_Body *physics_static_body_create(vec2 position, vec2 half_sizes) {
+Static_Body *physics_static_body_create(f32 x, f32 y, f32 half_width, f32 half_height) {
 	if (context.static_body_array_count == context.static_body_array_max) {
 		error_and_exit(EXIT_FAILURE, "No static bodies left.\n");
 	}
 
 	u32 index = context.static_body_array_count++;
-	Static_Body *body = &context.static_body_array[index];
-	body->id = index;
-	memcpy(body->aabb.position, position, sizeof(vec2));
-	memcpy(body->aabb.half_sizes, half_sizes, sizeof(vec2));
+	Static_Body static_body = {{{x, y}, {half_width, half_height}}};
+	context.static_body_array[index] = static_body;
 
-	return body;
+	return &context.static_body_array[index];
+}
+
+Trigger *physics_trigger_create(f32 x, f32 y, f32 half_width, f32 half_height) {
+	if (context.trigger_array_count == context.trigger_array_max) {
+		error_and_exit(EXIT_FAILURE, "No triggers left.\n");
+	}
+
+	u32 index = context.trigger_array_count++;
+	Trigger trigger = {{{x, y}, {half_width, half_height}}};
+	context.trigger_array[index] = trigger;
+
+	return &context.trigger_array[index];
 }
 
 static i32 x_axis_comparator(const void *a, const void *b) {
@@ -203,63 +214,50 @@ static i32 x_axis_comparator(const void *a, const void *b) {
 void physics_tick(f32 delta_time) {
 	for (u32 i = 0; i < context.body_array_count; ++i) {
 		Body *body = &context.body_array[i];
-		// Add gravity.
-		// body->velocity[1] -= 1;
-		// Terminal velocity.
-		// if (body->velocity[1] < -0.1f)
-			// body->velocity[1] = -0.1f;
 
-		// body->aabb.position[0] += body->velocity[0];
-		// body->aabb.position[1] += body->velocity[1];
+		// Integrate.
+		body->velocity[1] += GRAVITY;
+		if (body->velocity[1] < TERMINAL_VELOCITY)
+			body->velocity[1] = TERMINAL_VELOCITY;
+		body->aabb.position[0] += body->velocity[0] * delta_time;
+		body->aabb.position[1] += body->velocity[1] * delta_time;
 
-		// for (u32 j = 0; j < context.static_body_array_count; ++j) {
-		// 	Static_Body *static_body = &context.static_body_array[j];
-		// 	Hit hit = aabb_intersect_aabb(&static_body->aabb, &body->aabb);
-
-		// 	if (hit.body) {
-		// 		printf("%p\n", (void*)hit.body);
-		// 		render_point(hit.position, (vec4){1, 1, 0, 1});
-		// 		AABB temp = {hit.position[0] + hit.delta[0], hit.position[1] + hit.delta[1]};
-		// 		render_aabb(temp, (vec4){1, 1, 0, 1});
-		// 		// body->aabb.position[0] = hit.position[0] + hit.delta[0];
-		// 		// body->aabb.position[1] = hit.position[1] + hit.delta[1];
-		// 	}
-		// }
-
-		Sweep sweep;
-		u8 did_collide = 0;
+		// Triggers.
 		for (u32 j = 0; j < context.static_body_array_count; ++j) {
-			Static_Body *static_body = &context.static_body_array[j];
-			sweep = aabb_sweep_into(&body->aabb, context.static_body_array, context.static_body_array_count, body->velocity);
-
-			if (sweep.hit.body) {
-				vec2 direction = {body->velocity[0], body->velocity[1]};
-				f32 length = vec2_len(direction);
-				vec2_norm(direction, direction);
-				// render_ray(body->aabb.position, direction, length, (vec4){1, 0, 0, 1}, 1);
-				// AABB temp = {{0, 0}, {body->aabb.half_sizes[0], body->aabb.half_sizes[1]}};
-				// temp.position[0] = body->aabb.position[0] + body->velocity[0];
-				// temp.position[1] = body->aabb.position[1] + body->velocity[1];
-				// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-				// render_aabb(temp, (vec4){1, 0, 0, 1});
-				// temp.position[0] = sweep.position[0];
-				// temp.position[1] = sweep.position[1];
-				// render_aabb(temp, (vec4){1, 1, 0, 1});
-				// render_point(sweep.hit.position, (vec4){1, 1, 0, 1});
-
-				printf("normal [%f %f], time %f\n", sweep.hit.normal[0], sweep.hit.normal[1], sweep.hit.time);
-
-				// Handle gravity case.
-				body->aabb.position[0] = sweep.position[0] + sweep.hit.normal[0];
-				body->aabb.position[1] = sweep.position[1] + sweep.hit.normal[1];
-				did_collide = 1;
-			}
-
+			Trigger *trigger = &context.trigger_array[j];
+			Hit hit = aabb_intersect_aabb(&trigger->aabb, &body->aabb);
+			if (hit.body != NULL && trigger->on_trigger != NULL)
+				trigger->on_trigger(hit, body);
 		}
 
-		if (!did_collide) {
-			body->aabb.position[0] = sweep.position[0];
-			body->aabb.position[1] = sweep.position[1];
+		// Static collisions.
+		u8 was_hit = 0;
+		for (u32 j = 0; j < context.static_body_array_count; ++j) {
+			Static_Body *static_body = &context.static_body_array[j];
+			Hit hit = aabb_intersect_aabb(&static_body->aabb, &body->aabb);
+			if (hit.body != NULL) {
+				if (static_body->layer_mask > 0 && (body->layer_mask & static_body->layer_mask) == 0) {
+					continue;
+				}
+
+				body->aabb.position[0] += hit.delta[0];
+				body->aabb.position[1] += hit.delta[1];
+#if DEBUG
+				render_point(hit.position, (vec4){1, 1, 0, 1});
+#endif
+
+				if (hit.normal[0] == 0 && hit.normal[1] == 1) {
+					body->is_grounded = 1;
+				}
+				if (hit.normal[1] == -1) {
+					body->velocity[1] = 0;
+				}
+				was_hit = 1;
+			}
+		}
+
+		if (was_hit == 0) {
+			body->is_grounded = 0;
 		}
 	}
 }
