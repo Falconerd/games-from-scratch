@@ -61,14 +61,14 @@ typedef struct static_body Static_Body;
 typedef struct trigger Trigger;
 typedef struct physics_context Physics_Context;
 
-typedef struct entity_size Entity_Size;
+typedef struct entity Entity;
 typedef struct entity_context Entity_Context;
 
 typedef struct render_context Render_Context;
 
-typedef void (*On_Collide_Function)(Hit hit);
-typedef void (*On_Collide_Static_Function)(Hit hit);
-typedef void (*On_Trigger_Function)(Hit);
+typedef void (*On_Collide_Function)(u32 self_id, u32 other_id, Hit hit);
+typedef void (*On_Collide_Static_Function)(u32 self_id, u32 static_body_id, Hit hit);
+typedef void (*On_Trigger_Function)(u32 self_id, u32 trigger_id, Hit hit);
 
 ////////////////////////////////////////////////////////////////////////
 // Physics.
@@ -107,16 +107,17 @@ struct physics_context {
 };
 
 Physics_Context *physics_setup();
-void physics_tick(f32 delta_time, Entity_Context *entity_context);
+void physics_tick(f32 delta_time, Entity *entity_array);
 Static_Body *physics_static_body_create(f32 x, f32 y, f32 half_width, f32 half_height);
 Trigger *physics_trigger_create(f32 x, f32 y, f32 half_width, f32 half_height);
 Hit *aabb_intersect_aabb(AABB self, AABB other);
+void physics_cleanup();
 
 ////////////////////////////////////////////////////////////////////////
 // Entity.
 ////////////////////////////////////////////////////////////////////////
 
-struct entity_size {
+struct entity {
 	AABB aabb;
 	vec2 velocity;
 	u32 texture;
@@ -132,18 +133,7 @@ struct entity_size {
 };
 
 struct entity_context {
-	AABB *aabb_array;
-	vec2 *velocity_array;
-	u32 *texture_array;
-	vec2 *sprite_size_array;
-	vec2 *sprite_offset_array;
-	On_Collide_Function *on_collide_array;
-	On_Collide_Static_Function *on_collide_static_array;
-	u8 *is_in_use_array;
-	u8 *is_flipped_array;
-	u8 *is_grounded_array;
-	u8 *is_kinematic_array;
-	u8 *layer_mask_array;
+	Entity *entity_array;
 };
 
 Entity_Context *entity_setup();

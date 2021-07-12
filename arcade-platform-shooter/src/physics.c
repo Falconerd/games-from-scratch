@@ -7,13 +7,14 @@ static u32 next_hit_index = 0;
 Physics_Context *physics_setup() {
 	context.static_body_array = malloc(MAX_STATIC_BODIES * sizeof(*context.static_body_array));
 	context.trigger_array = malloc(MAX_TRIGGERS * sizeof(*context.trigger_array));
-	hit_array = malloc(MAX_ENTITIES * sizeof(*hit_array));
+	hit_array = calloc(MAX_ENTITIES * MAX_ENTITIES, sizeof(*hit_array));
 
 	return &context;
 }
 
 Hit *aabb_intersect_aabb(AABB self, AABB other) {
 	Hit *hit = &hit_array[next_hit_index++];
+	// Hit *hit = malloc(sizeof(Hit));
 	f32 dx = self.position[0] - other.position[0];
 	f32 px = self.half_sizes[0] + other.half_sizes[0] - fabs(dx);
 
@@ -74,67 +75,77 @@ Trigger *physics_trigger_create(f32 x, f32 y, f32 half_width, f32 half_height) {
 	return &context.trigger_array[index];
 }
 
-void physics_tick(f32 delta_time, Entity_Context *entity_context) {
+void physics_tick(f32 delta_time, Entity *entity_array) {
 	for (u32 i = 0; i < MAX_ENTITIES; ++i) {
-		if (!entity_context->is_in_use_array[i]) {
+		Entity *entity = &entity_array[i];
+		if (!entity->is_in_use) {
 			continue;
 		}
 
-		AABB *self = &entity_context->aabb_array[i];
-		f32 *velocity = entity_context->velocity_array[i];
-		u8 is_kinematic = entity_context->is_kinematic_array[i];
-		On_Collide_Static_Function on_collide_static = entity_context->on_collide_static_array[i];
-		u8 layer_mask = entity_context->layer_mask_array[i];
-		u8 *is_grounded = &entity_context->is_grounded_array[i];
-
 		// Integrate.
-		if (!is_kinematic) {
-			velocity[1] += GRAVITY;
-			if (velocity[1] < TERMINAL_VELOCITY)
-				velocity[1] = TERMINAL_VELOCITY;
+		if (!entity->is_kinematic) {
+			entity->velocity[1] += GRAVITY;
+			if (entity->velocity[1] < TERMINAL_VELOCITY)
+				entity->velocity[1] = TERMINAL_VELOCITY;
 		}
-		self->position[0] += velocity[0] * delta_time;
-		self->position[1] += velocity[1] * delta_time;
-
-		// Triggers.
-		for (u32 j = 0; j < context.trigger_array_count; ++j) {
-			Trigger *trigger = &context.trigger_array[j];
-			Hit *hit = aabb_intersect_aabb(*self, trigger->aabb);
-			if (hit != NULL && trigger->on_trigger != NULL)
-				trigger->on_trigger(*hit);
-		}
+		entity->aabb.position[0] += entity->velocity[0] * delta_time;
+		entity->aabb.position[1] += entity->velocity[1] * delta_time;
 
 		// Static collisions.
 		u32 was_hit = 0;
 		for (u32 j = 0; j < context.static_body_array_count; ++j) {
 			Static_Body *static_body = &context.static_body_array[j];
-			Hit *hit = aabb_intersect_aabb(*self, static_body->aabb);
+			Hit *hit = aabb_intersect_aabb(entity->aabb, static_body->aabb);
 			if (hit != NULL) {
-				if (static_body->layer_mask > 0 && (layer_mask & static_body->layer_mask) == 0) {
+				if (static_body->layer_mask > 0 && (entity->layer_mask & static_body->layer_mask) == 0) {
 					continue;
 				}
 
-				self->position[0] += hit->delta[0];
-				self->position[1] += hit->delta[1];
+				entity->aabb.position[0] += hit->delta[0];
+				entity->aabb.position[1] += hit->delta[1];
 #if DEBUG
 				render_point(hit->position, (vec4){1, 1, 0, 1});
 #endif
 
 				if (hit->normal[0] == 0 && hit->normal[1] == 1) {
-					*is_grounded = 1;
+					entity->is_grounded = 1;
 				}
 				if (hit->normal[1] == -1) {
-					velocity[1] = 0;
+					entity->velocity[1] = 0;
 				}
 				was_hit = 1;
 
-				if (on_collide_static != NULL)
-					on_collide_static(*hit);
+				if (entity->on_collide_static != NULL)
+					entity->on_collide_static(i, j, *hit);
 			}
 		}
 
+		// Only check triggers if no collisions happened.
+		// Otherwise triggers can be hit through solid objects.
 		if (was_hit == 0) {
-			*is_grounded = 0;
+			entity->is_grounded = 0;
+
+			// Triggers.
+			for (u32 j = 0; j < context.trigger_array_count; ++j) {
+				Trigger *trigger = &context.trigger_array[j];
+				Hit *hit = aabb_intersect_aabb(entity->aabb, trigger->aabb);
+				if (hit != NULL && trigger->on_trigger != NULL)
+					trigger->on_trigger(i, j, *hit);
+			}
 		}
 	}
+}
+
+void physics_cleanup() {
+	for (u32 i = 0; i < next_hit_index; ++i) {
+		Hit *hit = &hit_array[i];
+		hit->position[0] = 0;
+		hit->position[1] = 0;
+		hit->delta[0] = 0;
+		hit->delta[1] = 0;
+		hit->normal[0] = 0;
+		hit->normal[1] = 0;
+		hit->time = 0;
+	}
+	next_hit_index = 0;
 }
