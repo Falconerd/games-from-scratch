@@ -29,7 +29,7 @@
 
 #define GAME_TITLE "Mega Box Crate"
 
-#define DEBUG 1
+#define DEBUG 0
 
 #define SCALE 4
 #define WIDTH 256
@@ -40,7 +40,6 @@
 
 #define MAX_ENTITIES 256
 #define MAX_STATIC_BODIES 20
-#define MAX_BODIES 256
 #define MAX_TRIGGERS 10
 
 ////////////////////////////////////////////////////////////////////////
@@ -106,7 +105,7 @@ struct physics_context {
 	Trigger *trigger_array;
 };
 
-Physics_Context *physics_setup();
+void physics_setup(Physics_Context *physics_context);
 void physics_tick(f32 delta_time, Entity *entity_array);
 Static_Body *physics_static_body_create(f32 x, f32 y, f32 half_width, f32 half_height);
 Trigger *physics_trigger_create(f32 x, f32 y, f32 half_width, f32 half_height);
@@ -136,7 +135,7 @@ struct entity_context {
 	Entity *entity_array;
 };
 
-Entity_Context *entity_setup();
+void entity_setup(Entity_Context *entity_context);
 u32 entity_create(u32 texture, f32 x, f32 y, f32 collider_half_width, f32 collider_half_height, f32 sprite_width, f32 sprite_height, f32 sprite_offset_x, f32 sprite_offset_y, u32 layer_mask);
 void entity_destroy(u32 index);
 
@@ -156,7 +155,7 @@ struct render_context {
 	u32 line_vbo;
 };
 
-Render_Context *render_setup();
+void render_setup(Render_Context *render_context);
 void render_square(f32 x, f32 y, f32 width, f32 height, vec4 color);
 void render_sprite(u32 texture, vec3 position, vec2 size, u8 flipped);
 void render_point(vec2 position, vec4 color);

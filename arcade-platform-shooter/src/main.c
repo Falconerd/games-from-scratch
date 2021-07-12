@@ -11,10 +11,9 @@ typedef struct game_context {
 } Game_Context;
 
 static Game_Context context = {0};
-
-static Entity_Context *entity_context;
-static Render_Context *render_context;
-static Physics_Context *physics_context;
+static Entity_Context entity_context = {0};
+static Render_Context render_context = {0};
+static Physics_Context physics_context = {0};
 
 static u32 TERRAIN_TEXTURE;
 static u32 PLAYER_TEXTURE;
@@ -25,7 +24,7 @@ static u8 PLAYER_MASK = 1;
 static u8 ENEMY_MASK = 2;
 
 static void on_fire_trigger(u32 self_id, u32 trigger_id, Hit hit) {
-	Entity *self = &entity_context->entity_array[self_id];
+	Entity *self = &entity_context.entity_array[self_id];
 	if (self_id == 0) {
 		// Player killed, reset level.
 	}
@@ -40,9 +39,9 @@ int main(void) {
 	srand(time(NULL));
 
 	// Setup contexts.
-	entity_context = entity_setup();
-	render_context = render_setup();
-	physics_context = physics_setup();
+	entity_setup(&entity_context);
+	render_setup(&render_context);
+	physics_setup(&physics_context);
 
 	// Setup textures.
 	TERRAIN_TEXTURE = render_texture_create("./assets/terrain.png");
@@ -52,7 +51,7 @@ int main(void) {
 
 	// Setup player.
 	u32 player_id = entity_create(PLAYER_TEXTURE, 48, 48, 4, 4, 32, 10, -16, -3.5f, PLAYER_MASK);
-	Entity *player = &entity_context->entity_array[player_id];
+	Entity *player = &entity_context.entity_array[player_id];
 
 	// Setup terrain.
 	// Bottom.
@@ -83,7 +82,7 @@ int main(void) {
 	Trigger *trigger = physics_trigger_create(128, 8, 12, 8);
 	trigger->on_trigger = on_fire_trigger;
 
-	while (!glfwWindowShouldClose(render_context->window)) {
+	while (!glfwWindowShouldClose(render_context.window)) {
 		context.time_now = glfwGetTime();
 		context.delta_time = context.time_now - context.time_last_frame;
 		context.time_last_frame = context.time_now;
@@ -92,27 +91,27 @@ int main(void) {
 		f32 horizontal_velocity = 0;
 		f32 vertical_velocity = player->velocity[1];
 
-		if (glfwGetKey(render_context->window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-			glfwSetWindowShouldClose(render_context->window, GLFW_TRUE);
+		if (glfwGetKey(render_context.window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+			glfwSetWindowShouldClose(render_context.window, GLFW_TRUE);
 
 		// Variable jump height.
-		if (glfwGetKey(render_context->window, GLFW_KEY_F) == GLFW_RELEASE && context.jump_key_state == GLFW_PRESS) {
+		if (glfwGetKey(render_context.window, GLFW_KEY_F) == GLFW_RELEASE && context.jump_key_state == GLFW_PRESS) {
 			vertical_velocity *= 0.5f;
 			context.jump_key_state = GLFW_RELEASE;
 		}
 
-		if (glfwGetKey(render_context->window, GLFW_KEY_T) == GLFW_PRESS) {
+		if (glfwGetKey(render_context.window, GLFW_KEY_T) == GLFW_PRESS) {
 			horizontal_velocity += 100;
 			player->is_flipped = 0;
 		}
 
-		if (glfwGetKey(render_context->window, GLFW_KEY_R) == GLFW_PRESS) {
+		if (glfwGetKey(render_context.window, GLFW_KEY_R) == GLFW_PRESS) {
 			horizontal_velocity -= 100;
 			player->is_flipped = 1;
 		}
 
 		// Jump.
-		if (glfwGetKey(render_context->window, GLFW_KEY_F) == GLFW_PRESS) {
+		if (glfwGetKey(render_context.window, GLFW_KEY_F) == GLFW_PRESS) {
 			if (player->is_grounded) {
 				player->is_grounded = 0;
 				context.jump_key_state = GLFW_PRESS;
@@ -121,9 +120,9 @@ int main(void) {
 		}
 
 		// Shoot.
-		if (glfwGetKey(render_context->window, GLFW_KEY_E) == GLFW_PRESS) {
+		if (glfwGetKey(render_context.window, GLFW_KEY_E) == GLFW_PRESS) {
 			u32 bullet_id = entity_create(BULLET_TEXTURE, player->aabb.position[0], player->aabb.position[1], 1.5f, 1.5f, 3, 3, -1.5f, -1.5f, ENEMY_MASK);
-			Entity *bullet = &entity_context->entity_array[bullet_id];
+			Entity *bullet = &entity_context.entity_array[bullet_id];
 			bullet->is_kinematic = 1;
 			bullet->velocity[0] = player->is_flipped ? -400 : 400;
 			bullet->on_collide_static = on_bullet_collide_static;
@@ -133,7 +132,7 @@ int main(void) {
 		player->velocity[1] = vertical_velocity;
 
 		// Update physics.
-		physics_tick(context.delta_time, entity_context->entity_array);
+		physics_tick(context.delta_time, entity_context.entity_array);
 		physics_cleanup();
 
 		// Clear screen, etc.
@@ -146,7 +145,7 @@ int main(void) {
 
 		// Render entities.
 		for (u32 i = 0; i < MAX_ENTITIES; ++i) {
-			Entity *entity = &entity_context->entity_array[i];
+			Entity *entity = &entity_context.entity_array[i];
 			if (entity->is_in_use) {
 				vec3 position = {entity->aabb.position[0] + entity->sprite_offset[0],
 						 entity->aabb.position[1] + entity->sprite_offset[1], 0};
@@ -157,7 +156,7 @@ int main(void) {
 #if DEBUG
 		// Render entity colliders.
 		for (u32 i = 0; i < MAX_ENTITIES; ++i) {
-			Entity *entity = &entity_context->entity_array[i];
+			Entity *entity = &entity_context.entity_array[i];
 			if (entity->is_in_use) {
 				glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 				render_aabb(entity->aabb, (vec4){0, 1, 0, 1});
@@ -166,20 +165,20 @@ int main(void) {
 		}
 
 		// Render terrain colliders.
-		for (u32 i = 0; i < physics_context->static_body_array_count; ++i) {
+		for (u32 i = 0; i < physics_context.static_body_array_count; ++i) {
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-			render_aabb(physics_context->static_body_array[i].aabb, (vec4){1, 1, 1, 1});
+			render_aabb(physics_context.static_body_array[i].aabb, (vec4){1, 1, 1, 1});
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		}
 
 		// Render triggers.
-		for (u32 i = 0; i < physics_context->trigger_array_count; ++i) {
+		for (u32 i = 0; i < physics_context.trigger_array_count; ++i) {
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-			render_aabb(physics_context->trigger_array[i].aabb, (vec4){1, 1, 0, 1});
+			render_aabb(physics_context.trigger_array[i].aabb, (vec4){1, 1, 0, 1});
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		}
 #endif
 
-		glfwSwapBuffers(render_context->window);
+		glfwSwapBuffers(render_context.window);
 	}
 }

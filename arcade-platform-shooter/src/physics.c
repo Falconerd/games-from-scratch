@@ -1,20 +1,18 @@
 #include "shared.h"
 
-static Physics_Context context = {0};
+static Physics_Context *context;
 static Hit *hit_array;
 static u32 next_hit_index = 0;
 
-Physics_Context *physics_setup() {
-	context.static_body_array = malloc(MAX_STATIC_BODIES * sizeof(*context.static_body_array));
-	context.trigger_array = malloc(MAX_TRIGGERS * sizeof(*context.trigger_array));
+void physics_setup(Physics_Context *physics_context) {
+	context = physics_context;
+	context->static_body_array = calloc(MAX_STATIC_BODIES, sizeof(*context->static_body_array));
+	context->trigger_array = calloc(MAX_TRIGGERS, sizeof(*context->trigger_array));
 	hit_array = calloc(MAX_ENTITIES * MAX_ENTITIES, sizeof(*hit_array));
-
-	return &context;
 }
 
 Hit *aabb_intersect_aabb(AABB self, AABB other) {
 	Hit *hit = &hit_array[next_hit_index++];
-	// Hit *hit = malloc(sizeof(Hit));
 	f32 dx = self.position[0] - other.position[0];
 	f32 px = self.half_sizes[0] + other.half_sizes[0] - fabs(dx);
 
@@ -51,28 +49,28 @@ Hit *aabb_intersect_aabb(AABB self, AABB other) {
 }
 
 Static_Body *physics_static_body_create(f32 x, f32 y, f32 half_width, f32 half_height) {
-	if (context.static_body_array_count == MAX_STATIC_BODIES) {
+	if (context->static_body_array_count == MAX_STATIC_BODIES) {
 		error_and_exit(EXIT_FAILURE, "No static bodies left.\n");
 	}
 
-	u32 index = context.static_body_array_count++;
+	u32 index = context->static_body_array_count++;
 	Static_Body static_body = {{{x, y}, {half_width, half_height}}};
-	context.static_body_array[index] = static_body;
+	context->static_body_array[index] = static_body;
 
-	return &context.static_body_array[index];
+	return &context->static_body_array[index];
 }
 
 Trigger *physics_trigger_create(f32 x, f32 y, f32 half_width, f32 half_height) {
-	if (context.trigger_array_count == MAX_TRIGGERS) {
+	if (context->trigger_array_count == MAX_TRIGGERS) {
 		error_and_exit(EXIT_FAILURE, "No triggers left.\n");
 	}
 
-	u32 index = context.trigger_array_count++;
+	u32 index = context->trigger_array_count++;
 	Trigger trigger = {{{x, y}, {half_width, half_height}}};
 	trigger.id = index;
-	context.trigger_array[index] = trigger;
+	context->trigger_array[index] = trigger;
 
-	return &context.trigger_array[index];
+	return &context->trigger_array[index];
 }
 
 void physics_tick(f32 delta_time, Entity *entity_array) {
@@ -93,8 +91,8 @@ void physics_tick(f32 delta_time, Entity *entity_array) {
 
 		// Static collisions.
 		u32 was_hit = 0;
-		for (u32 j = 0; j < context.static_body_array_count; ++j) {
-			Static_Body *static_body = &context.static_body_array[j];
+		for (u32 j = 0; j < context->static_body_array_count; ++j) {
+			Static_Body *static_body = &context->static_body_array[j];
 			Hit *hit = aabb_intersect_aabb(entity->aabb, static_body->aabb);
 			if (hit != NULL) {
 				if (static_body->layer_mask > 0 && (entity->layer_mask & static_body->layer_mask) == 0) {
@@ -126,8 +124,8 @@ void physics_tick(f32 delta_time, Entity *entity_array) {
 			entity->is_grounded = 0;
 
 			// Triggers.
-			for (u32 j = 0; j < context.trigger_array_count; ++j) {
-				Trigger *trigger = &context.trigger_array[j];
+			for (u32 j = 0; j < context->trigger_array_count; ++j) {
+				Trigger *trigger = &context->trigger_array[j];
 				Hit *hit = aabb_intersect_aabb(entity->aabb, trigger->aabb);
 				if (hit != NULL && trigger->on_trigger != NULL)
 					trigger->on_trigger(i, j, *hit);
@@ -137,15 +135,6 @@ void physics_tick(f32 delta_time, Entity *entity_array) {
 }
 
 void physics_cleanup() {
-	for (u32 i = 0; i < next_hit_index; ++i) {
-		Hit *hit = &hit_array[i];
-		hit->position[0] = 0;
-		hit->position[1] = 0;
-		hit->delta[0] = 0;
-		hit->delta[1] = 0;
-		hit->normal[0] = 0;
-		hit->normal[1] = 0;
-		hit->time = 0;
-	}
+	memset(hit_array, 0, next_hit_index * sizeof(Hit));
 	next_hit_index = 0;
 }
