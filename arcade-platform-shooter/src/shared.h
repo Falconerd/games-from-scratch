@@ -11,7 +11,9 @@
 
 #include "../deps/lib/linmath.h"
 
-// Types.
+////////////////////////////////////////////////////////////////////////
+// Defined types.
+////////////////////////////////////////////////////////////////////////
 
 #define u8 uint8_t
 #define u16 uint16_t
@@ -21,7 +23,9 @@
 #define i32 int32_t
 #define m4 mat4x4
 
+////////////////////////////////////////////////////////////////////////
 // Globals and flags.
+////////////////////////////////////////////////////////////////////////
 
 #define GAME_TITLE "Mega Box Crate"
 
@@ -39,43 +43,47 @@
 #define MAX_BODIES 256
 #define MAX_TRIGGERS 10
 
+////////////////////////////////////////////////////////////////////////
+// Shared functions.
+////////////////////////////////////////////////////////////////////////
+
 void error_and_exit(i32 code, const char *message);
 f32 fsign(f32 a);
 f32 fclamp(f32 a, f32 min, f32 max);
 
-// Physics.
+////////////////////////////////////////////////////////////////////////
+// Typedefs.
+////////////////////////////////////////////////////////////////////////
 
-typedef struct aabb {
-	vec2 position;
-	vec2 half_sizes;
-	vec2 last_position;
-} AABB;
-
-typedef struct body Body;
+typedef struct hit Hit;
+typedef struct aabb AABB;
 typedef struct static_body Static_Body;
+typedef struct trigger Trigger;
+typedef struct physics_context Physics_Context;
 
-typedef struct hit {
-	Body *self;
-	Body *other;
+typedef struct entity_size Entity_Size;
+typedef struct entity_context Entity_Context;
+
+typedef struct render_context Render_Context;
+
+typedef void (*On_Collide_Function)(Hit hit);
+typedef void (*On_Collide_Static_Function)(Hit hit);
+typedef void (*On_Trigger_Function)(Hit);
+
+////////////////////////////////////////////////////////////////////////
+// Physics.
+////////////////////////////////////////////////////////////////////////
+
+struct hit {
 	vec2 position;
 	vec2 delta;
 	vec2 normal;
 	f32 time;
-} Hit;
+};
 
-typedef void (*On_Collide_Function)(Hit hit);
-typedef void (*On_Collide_Static_Function)(Hit hit);
-
-struct body {
-	AABB aabb;
-	vec2 velocity;
-	u32 id;
-	u32 entity_id;
-	On_Collide_Function on_collide;
-	On_Collide_Static_Function on_collide_static;
-	u8 is_grounded;
-	u8 is_kinematic;
-	u8 layer_mask;
+struct aabb {
+	vec2 position;
+	vec2 half_sizes;
 };
 
 struct static_body {
@@ -83,67 +91,70 @@ struct static_body {
 	u8 layer_mask;
 };
 
-typedef void (*On_Trigger_Function)(Hit);
-
-typedef struct trigger {
+struct trigger {
 	AABB aabb;
 	u32 id;
 	On_Trigger_Function on_trigger;
-} Trigger;
+};
 
-typedef struct sweep {
-	Hit hit;
-	vec2 position;
-	f32 time;
-} Sweep;
-
-typedef struct physics_context {
-	u32 body_array_count;
-	u32 body_array_max;
-	Body *body_array;
+struct physics_context {
 	u32 static_body_array_count;
 	u32 static_body_array_max;
 	Static_Body *static_body_array;
 	u32 trigger_array_count;
 	u32 trigger_array_max;
 	Trigger *trigger_array;
-} Physics_Context;
+};
 
 Physics_Context *physics_setup();
-void physics_tick(f32 delta_time);
-Body *physics_body_create(f32 x, f32 y, f32 half_width, f32 half_height);
-void physics_body_destroy(u32 index);
+void physics_tick(f32 delta_time, Entity_Context *entity_context);
 Static_Body *physics_static_body_create(f32 x, f32 y, f32 half_width, f32 half_height);
 Trigger *physics_trigger_create(f32 x, f32 y, f32 half_width, f32 half_height);
+Hit *aabb_intersect_aabb(AABB self, AABB other);
 
-Hit aabb_intersect_aabb(AABB *self, AABB *other);
-Hit aabb_intersect_segment(AABB *self, vec2 position, vec2 delta, f32 padding_x, f32 padding_y);
-Sweep aabb_sweep_aabb(AABB *self, AABB *other, vec2 delta);
-
+////////////////////////////////////////////////////////////////////////
 // Entity.
+////////////////////////////////////////////////////////////////////////
 
-typedef struct entity {
+struct entity_size {
+	AABB aabb;
+	vec2 velocity;
 	u32 texture;
-	vec2 sprite_offset;
 	vec2 sprite_size;
-	u32 id;
-	u32 body_id;
+	vec2 sprite_offset;
+	On_Collide_Function on_collide;
+	On_Collide_Static_Function on_collide_static;
+	u8 is_in_use;
 	u8 is_flipped;
-} Entity;
+	u8 is_grounded;
+	u8 is_kinematic;
+	u8 layer_mask;
+};
 
-typedef struct entity_context {
-	Entity *entity_array;
-	u32 entity_array_count;
-	u32 entity_array_max;
-} Entity_Context;
+struct entity_context {
+	AABB *aabb_array;
+	vec2 *velocity_array;
+	u32 *texture_array;
+	vec2 *sprite_size_array;
+	vec2 *sprite_offset_array;
+	On_Collide_Function *on_collide_array;
+	On_Collide_Static_Function *on_collide_static_array;
+	u8 *is_in_use_array;
+	u8 *is_flipped_array;
+	u8 *is_grounded_array;
+	u8 *is_kinematic_array;
+	u8 *layer_mask_array;
+};
 
 Entity_Context *entity_setup();
-Entity *entity_create(u32 texture, f32 offset_x, f32 offset_y, f32 sprite_size_x, f32 sprite_size_y);
+u32 entity_create(u32 texture, f32 x, f32 y, f32 collider_half_width, f32 collider_half_height, f32 sprite_width, f32 sprite_height, f32 sprite_offset_x, f32 sprite_offset_y, u32 layer_mask);
 void entity_destroy(u32 index);
 
+////////////////////////////////////////////////////////////////////////
 // Render.
+////////////////////////////////////////////////////////////////////////
 
-typedef struct render_context {
+struct render_context {
 	GLFWwindow *window;
 	m4 projection;
 	u32 color_texture;
@@ -153,7 +164,7 @@ typedef struct render_context {
 	u32 square_ebo;
 	u32 line_vao;
 	u32 line_vbo;
-} Render_Context;
+};
 
 Render_Context *render_setup();
 void render_square(f32 x, f32 y, f32 width, f32 height, vec4 color);
@@ -164,11 +175,15 @@ void render_segment(vec2 start, vec2 end, vec4 color);
 void render_ray(vec2 start, vec2 direction, f32 length, vec4 color, u8 arrow);
 u32 render_texture_create(const char *path);
 
+////////////////////////////////////////////////////////////////////////
 // Input output.
+////////////////////////////////////////////////////////////////////////
 
 char *read_file_into_buffer(const char *path);
 
+////////////////////////////////////////////////////////////////////////
 // User input.
+////////////////////////////////////////////////////////////////////////
 
 void input_key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
 

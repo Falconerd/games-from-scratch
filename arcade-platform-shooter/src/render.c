@@ -57,7 +57,7 @@ static u32 shader_setup(const char *vert_path, const char *frag_path) {
 }
 
 void render_square(f32 x, f32 y, f32 width, f32 height, vec4 color) {
-	mat4x4 model;
+	m4 model;
 	mat4x4_identity(model);
 
 	mat4x4_translate(model, x + width * 0.5f, y + height * 0.5f, 0.0f);
@@ -72,7 +72,7 @@ void render_square(f32 x, f32 y, f32 width, f32 height, vec4 color) {
 }
 
 void render_point(vec2 position, vec4 color) {
-	mat4x4 model;
+	m4 model;
 	mat4x4_identity(model);
 
 	mat4x4_translate(model, position[0], position[1], 0);
@@ -93,7 +93,7 @@ void render_segment(vec2 start, vec2 end, vec4 color) {
 	f32 x = end[0] - start[0];
 	f32 y = end[1] - start[1];
 	f32 line[6] = {0, 0, 0, x, y, 0};
-	mat4x4 model;
+	m4 model;
 	mat4x4_identity(model);
 
 	mat4x4_translate(model, start[0], start[1], 0);
@@ -130,7 +130,7 @@ void render_ray(vec2 start, vec2 direction, f32 length, vec4 color, u8 arrow) {
 }
 
 void render_sprite(u32 texture, vec3 position, vec2 size, u8 is_flipped) {
-	mat4x4 model;
+	m4 model;
 	mat4x4_identity(model);
 
 	mat4x4_translate(model, position[0] + size[0] * 0.5f, position[1] + size[1] * 0.5f, 0.0f);
