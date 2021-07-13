@@ -29,7 +29,7 @@
 
 #define GAME_TITLE "Mega Box Crate"
 
-#define DEBUG 0
+#define DEBUG 1
 
 #define SCALE 4
 #define WIDTH 256
@@ -49,6 +49,7 @@
 void error_and_exit(i32 code, const char *message);
 f32 fsign(f32 a);
 f32 fclamp(f32 a, f32 min, f32 max);
+f32 frandr(f32 min, f32 max);
 
 ////////////////////////////////////////////////////////////////////////
 // Typedefs.
@@ -103,11 +104,12 @@ struct physics_context {
 	u32 trigger_array_count;
 	u32 trigger_array_max;
 	Trigger *trigger_array;
+	u8 mask_array[4];
 };
 
 void physics_setup(Physics_Context *physics_context);
 void physics_tick(f32 delta_time, Entity *entity_array);
-Static_Body *physics_static_body_create(f32 x, f32 y, f32 half_width, f32 half_height);
+Static_Body *physics_static_body_create(f32 x, f32 y, f32 half_width, f32 half_height, u8 layer_mask);
 Trigger *physics_trigger_create(f32 x, f32 y, f32 half_width, f32 half_height);
 Hit *aabb_intersect_aabb(AABB self, AABB other);
 void physics_cleanup();
@@ -124,11 +126,13 @@ struct entity {
 	vec2 sprite_offset;
 	On_Collide_Function on_collide;
 	On_Collide_Static_Function on_collide_static;
+	f32 time_to_live;
 	u8 is_in_use;
 	u8 is_flipped;
 	u8 is_grounded;
 	u8 is_kinematic;
 	u8 layer_mask;
+	u8 health;
 };
 
 struct entity_context {

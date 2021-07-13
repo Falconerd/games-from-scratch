@@ -48,13 +48,14 @@ Hit *aabb_intersect_aabb(AABB self, AABB other) {
 	return hit;
 }
 
-Static_Body *physics_static_body_create(f32 x, f32 y, f32 half_width, f32 half_height) {
+Static_Body *physics_static_body_create(f32 x, f32 y, f32 half_width, f32 half_height, u8 layer_mask) {
 	if (context->static_body_array_count == MAX_STATIC_BODIES) {
 		error_and_exit(EXIT_FAILURE, "No static bodies left.\n");
 	}
 
 	u32 index = context->static_body_array_count++;
 	Static_Body static_body = {{{x, y}, {half_width, half_height}}};
+	static_body.layer_mask = layer_mask;
 	context->static_body_array[index] = static_body;
 
 	return &context->static_body_array[index];
@@ -73,11 +74,34 @@ Trigger *physics_trigger_create(f32 x, f32 y, f32 half_width, f32 half_height) {
 	return &context->trigger_array[index];
 }
 
+static u8 can_collide(u8 a_id, u8 b_id) {
+	u8 a = context->mask_array[a_id];
+	return ((1 << b_id & a) > 0);
+}
+
 void physics_tick(f32 delta_time, Entity *entity_array) {
 	for (u32 i = 0; i < MAX_ENTITIES; ++i) {
 		Entity *entity = &entity_array[i];
-		if (!entity->is_in_use) {
+		if (!entity->is_in_use)
 			continue;
+
+		// Triggers. Check first because otherwise the velocity is added and
+		// entities can trigger things through static objects.
+		for (u32 j = 0; j < context->trigger_array_count; ++j) {
+			Trigger *trigger = &context->trigger_array[j];
+			Hit *hit = aabb_intersect_aabb(entity->aabb, trigger->aabb);
+			if (hit != NULL && trigger->on_trigger != NULL)
+				trigger->on_trigger(i, j, *hit);
+		}
+
+		// Collision events with other entities.
+		for (u32 j = 0; j < MAX_ENTITIES; ++j) {
+			Entity *other = &entity_array[j];
+			if (i == j || !other->is_in_use || !can_collide(entity->layer_mask, other->layer_mask))
+				continue;
+			Hit *hit = aabb_intersect_aabb(entity->aabb, other->aabb);
+			if (hit != NULL && entity->on_collide != NULL)
+				entity->on_collide(i, j, *hit);
 		}
 
 		// Integrate.
@@ -95,9 +119,8 @@ void physics_tick(f32 delta_time, Entity *entity_array) {
 			Static_Body *static_body = &context->static_body_array[j];
 			Hit *hit = aabb_intersect_aabb(entity->aabb, static_body->aabb);
 			if (hit != NULL) {
-				if (static_body->layer_mask > 0 && (entity->layer_mask & static_body->layer_mask) == 0) {
+				if (!can_collide(entity->layer_mask, static_body->layer_mask))
 					continue;
-				}
 
 				entity->aabb.position[0] += hit->delta[0];
 				entity->aabb.position[1] += hit->delta[1];
@@ -105,12 +128,10 @@ void physics_tick(f32 delta_time, Entity *entity_array) {
 				render_point(hit->position, (vec4){1, 1, 0, 1});
 #endif
 
-				if (hit->normal[0] == 0 && hit->normal[1] == 1) {
+				if (hit->normal[0] == 0 && hit->normal[1] == 1)
 					entity->is_grounded = 1;
-				}
-				if (hit->normal[1] == -1) {
+				if (hit->normal[1] == -1)
 					entity->velocity[1] = 0;
-				}
 				was_hit = 1;
 
 				if (entity->on_collide_static != NULL)
@@ -118,19 +139,8 @@ void physics_tick(f32 delta_time, Entity *entity_array) {
 			}
 		}
 
-		// Only check triggers if no collisions happened.
-		// Otherwise triggers can be hit through solid objects.
-		if (was_hit == 0) {
+		if (was_hit == 0)
 			entity->is_grounded = 0;
-
-			// Triggers.
-			for (u32 j = 0; j < context->trigger_array_count; ++j) {
-				Trigger *trigger = &context->trigger_array[j];
-				Hit *hit = aabb_intersect_aabb(entity->aabb, trigger->aabb);
-				if (hit != NULL && trigger->on_trigger != NULL)
-					trigger->on_trigger(i, j, *hit);
-			}
-		}
 	}
 }
 

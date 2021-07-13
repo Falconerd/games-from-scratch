@@ -16,3 +16,7 @@ f32 fclamp(f32 a, f32 min, f32 max) {
 	if (a > max) return max;
 	return a;
 }
+
+f32 frandr(f32 min, f32 max) {
+	return (((f32)(rand() % 100)) / 100.0f) * max + min;
+}
