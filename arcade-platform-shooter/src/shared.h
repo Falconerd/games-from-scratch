@@ -20,8 +20,12 @@
 #define u32 uint32_t
 #define f32 float
 #define f64 double
+#define i8 int8_t
 #define i32 int32_t
 #define m4 mat4x4
+#define v2 vec2
+#define v3 vec3
+#define v4 vec4
 
 ////////////////////////////////////////////////////////////////////////
 // Globals and flags.
@@ -29,7 +33,7 @@
 
 #define GAME_TITLE "Mega Box Crate"
 
-#define DEBUG 1
+#define DEBUG 0
 
 #define SCALE 4
 #define WIDTH 256
@@ -50,6 +54,9 @@ void error_and_exit(i32 code, const char *message);
 f32 fsign(f32 a);
 f32 fclamp(f32 a, f32 min, f32 max);
 f32 frandr(f32 min, f32 max);
+
+f32 vec2_dist(vec2 a, vec2 b);
+f32 vec2_sqr_dist(vec2 a, vec2 b);
 
 ////////////////////////////////////////////////////////////////////////
 // Typedefs.
@@ -121,9 +128,18 @@ void physics_cleanup();
 struct entity {
 	AABB aabb;
 	vec2 velocity;
+	vec2 desired_velocity;
+	vec2 acceleration;
 	u32 texture;
 	vec2 sprite_size;
 	vec2 sprite_offset;
+
+	vec4 sprite_color;
+	vec4 desired_sprite_color;
+	vec4 sprite_color_delta;
+
+	f32 rotation;
+
 	On_Collide_Function on_collide;
 	On_Collide_Static_Function on_collide_static;
 	f32 time_to_live;
@@ -132,7 +148,7 @@ struct entity {
 	u8 is_grounded;
 	u8 is_kinematic;
 	u8 layer_mask;
-	u8 health;
+	i8 health;
 };
 
 struct entity_context {
@@ -152,21 +168,33 @@ struct render_context {
 	m4 projection;
 	u32 color_texture;
 	u32 shader;
-	u32 square_vao;
-	u32 square_vbo;
-	u32 square_ebo;
+	u32 quad_vao;
+	u32 quad_vbo;
+	u32 quad_ebo;
 	u32 line_vao;
 	u32 line_vbo;
+	u32 text_vao;
+	u32 text_ebo;
+	u32 text_texture;
+	u32 text_shader;
+	u32 circle_shader;
+
+	f32 screen_shake_timer;
+	f32 screen_shake_magnitude;
 };
 
 void render_setup(Render_Context *render_context);
-void render_square(f32 x, f32 y, f32 width, f32 height, vec4 color);
-void render_sprite(u32 texture, vec3 position, vec2 size, u8 flipped);
+void render_quad(f32 x, f32 y, f32 width, f32 height, vec4 color);
+void render_circle(f32 x, f32 y, f32 radius, vec4 color);
+void render_text(f32 x, f32 y, const char *text, vec4 color);
+void render_sprite(u32 texture, vec3 position, vec2 size, f32 rotation, vec4 color, u8 is_flipped);
 void render_point(vec2 position, vec4 color);
 void render_aabb(AABB aabb, vec4 color);
 void render_segment(vec2 start, vec2 end, vec4 color);
 void render_ray(vec2 start, vec2 direction, f32 length, vec4 color, u8 arrow);
 u32 render_texture_create(const char *path);
+void render_screen_shake_add(f32 duration, f32 magnitude);
+void render_screen_shake(f32 delta_time);
 
 ////////////////////////////////////////////////////////////////////////
 // Input output.

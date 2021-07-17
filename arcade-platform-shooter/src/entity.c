@@ -31,6 +31,7 @@ u32 entity_create(u32 texture, f32 x, f32 y, f32 collider_half_width, f32 collid
 	entity->aabb.half_sizes[1] = collider_half_height;
 	entity->sprite_size[0] = sprite_width;
 	entity->sprite_size[1] = sprite_height;
+	memcpy(entity->sprite_color, (vec4){1, 1, 1, 1}, sizeof(vec4)); 
 	entity->sprite_offset[0] = sprite_offset_x;
 	entity->sprite_offset[1] = sprite_offset_y;
 	entity->layer_mask = layer_mask;

@@ -2,8 +2,11 @@ flags = -Wall -pedantic -std=c99
 libs = -lX11 -lglfw -ldl -lm
 inc = -I./deps/include
 
-build: src/main.c glad.o render.o shared.o io.o entity.o physics.o
+build: main.o glad.o render.o shared.o io.o entity.o physics.o
 	gcc -g3 -O0 $(flags) $(libs) $(inc) $^
+
+main.o: src/main.c
+	gcc -c -g3 -O0 $(inc) $^
 
 glad.o: deps/src/glad.c
 	gcc -c -g3 -O0 $(inc) $^

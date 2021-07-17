@@ -110,6 +110,14 @@ void physics_tick(f32 delta_time, Entity *entity_array) {
 			if (entity->velocity[1] < TERMINAL_VELOCITY)
 				entity->velocity[1] = TERMINAL_VELOCITY;
 		}
+
+		entity->velocity[0] += entity->acceleration[0];
+		entity->velocity[1] += entity->acceleration[1];
+
+		if (entity->desired_velocity[0] != 0 && fabs(entity->velocity[0]) > fabs(entity->desired_velocity[0])) {
+			entity->velocity[0] = entity->desired_velocity[0];
+		}
+
 		entity->aabb.position[0] += entity->velocity[0] * delta_time;
 		entity->aabb.position[1] += entity->velocity[1] * delta_time;
 

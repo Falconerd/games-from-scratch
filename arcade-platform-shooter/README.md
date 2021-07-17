@@ -1,0 +1,40 @@
+# Arcade platformer shooter
+
+## TODO in priority order
+    - [/] Circle shader
+        - Draw circle on a quad, move the quad
+        - Also need to scale in the pixel shader to keep pixel perfect
+    - [X] Rocket launcher circle animation
+        - When the rocket hits something, a shockwave should expand from the impact point
+    - [X] Screen-shake
+        - Just use stacking timer and magnitude, offset projection?
+    - [X] Rocket launcher damage 
+        - Find all entities within radius, probably just query all entities since the game is small
+    - [X] Weapon knockback/kick
+    - [X] Pistol weapon
+    - [X] Revolver weapon
+        - [X] Large bullets
+    - [ ] Bullets should not collide more than once with the same enemy
+    - [/] Enemy death animations
+        - [X] Perhaps make enemies fall off screen
+        - [ ] Rotation
+    - [X] Rocket launcher acceleration
+    - [/] Rocket launcher trail smoke
+    - [ ] Add debug hotkey
+    - [ ] Simple input system
+    - [ ] White -> Yellow -> Red explosions
+    - [ ] Audio
+        - Invesigate options, probably use miniaudio library
+    - [ ] Text rendering
+        - Probably use very simple bitmap rendering
+    - [ ] Draw animations
+        - [ ] Player
+        - [ ] Small enemy
+        - [ ] Large enemy
+    - [ ] Sprite animation system
+        - Probably use a simple FSM... Maybe link to entity system
+    - [ ] Resolution stuff
+        - Currently just runs in windowed more in NES resolution
+    - [ ] Profiler
+        - Would be nice to see FPS, frame time, etc?
+            - nsight, radeon profiler
