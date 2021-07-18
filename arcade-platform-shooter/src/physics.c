@@ -132,12 +132,16 @@ void physics_tick(f32 delta_time, Entity *entity_array) {
 
 				entity->aabb.position[0] += hit->delta[0];
 				entity->aabb.position[1] += hit->delta[1];
+
 #if DEBUG
 				render_point(hit->position, (vec4){1, 1, 0, 1});
 #endif
 
-				if (hit->normal[0] == 0 && hit->normal[1] == 1)
+				if (hit->normal[0] == 0 && hit->normal[1] == 1) {
 					entity->is_grounded = 1;
+					entity->velocity[1] = 0;
+				}
+
 				if (hit->normal[1] == -1)
 					entity->velocity[1] = 0;
 				was_hit = 1;

@@ -28,19 +28,21 @@
 #define v4 vec4
 
 ////////////////////////////////////////////////////////////////////////
-// Globals and flags.
+// Defines and flags.
 ////////////////////////////////////////////////////////////////////////
 
-#define GAME_TITLE "Mega Box Crate"
+#define DEBUG 1
 
-#define DEBUG 0
+#define PI 3.14159265f
+
+#define GAME_TITLE "Mega Box Crate"
 
 #define SCALE 4
 #define WIDTH 256
 #define HEIGHT 224
 
-#define GRAVITY -30
-#define TERMINAL_VELOCITY -240
+#define GRAVITY -20
+#define TERMINAL_VELOCITY -200
 
 #define MAX_ENTITIES 256
 #define MAX_STATIC_BODIES 20
