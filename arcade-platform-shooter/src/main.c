@@ -53,13 +53,15 @@ typedef struct game_context {
 	u32 rocket_id;
 	f32 rocket_smoke_timer;
 
-	u8 jump_key_state;
+	u8 jump_key_was_pressed;
+	u8 should_quit;
 } Game_Context;
 
 static Game_Context context = {0};
 static Entity_Context entity_context = {0};
 static Render_Context render_context = {0};
 static Physics_Context physics_context = {0};
+static Input_Context input_context = {0};
 
 ////////////////////////////////////////////////////////////////////////
 // Constants.
@@ -125,7 +127,7 @@ static void on_fire_trigger(u32 self_id, u32 trigger_id, Hit hit) {
 }
 
 static void on_player_collide(u32 self_id, u32 other_id, Hit hit) {
-	// reset();
+	reset();
 }
 
 static void kill_enemy(u32 id) {
@@ -148,6 +150,7 @@ static void on_bullet_collide_static(u32 self_id, u32 static_body_id, Hit hit) {
 }
 
 static void on_bullet_large_collide(u32 self_id, u32 other_id, Hit hit) {
+	entity_destroy(self_id);
 	Entity *enemy = &entity_context.entity_array[other_id];
 	enemy->health -= 2;
 	if (enemy->health <= 0)
@@ -271,6 +274,112 @@ static void reset() {
 	spawn_box();
 }
 
+static void handle_input() {
+	SDL_Event event;
+	while (SDL_PollEvent(&event)) {
+		switch (event.type) {
+		case SDL_QUIT:
+			exit(0);
+		default:
+			break;
+		}
+	}
+
+	Entity *player = &entity_context.entity_array[0];
+
+	f32 horizontal_velocity = 0;
+	f32 vertical_velocity = player->velocity[1];
+
+	context.weapon_kick -= 1000 * context.delta_time;
+
+	const u8 *keyboard_state = SDL_GetKeyboardState(NULL);
+
+	if (keyboard_state[SDL_SCANCODE_ESCAPE]) {
+		context.should_quit = 1;
+	}
+
+	if (keyboard_state[input_context.right]) {
+		horizontal_velocity += PLAYER_MOVEMENT_SPEED;
+		player->is_flipped = 0;
+	}
+
+	if (keyboard_state[input_context.left]) {
+		horizontal_velocity -= PLAYER_MOVEMENT_SPEED;
+		player->is_flipped = 1;
+	}
+
+	if (!keyboard_state[input_context.jump] && context.jump_key_was_pressed) {
+		vertical_velocity *= 0.5f;
+		context.jump_key_was_pressed = 0;
+	}
+
+	if (keyboard_state[input_context.jump]) {
+		if (player->is_grounded) {
+			player->is_grounded = 0;
+			context.jump_key_was_pressed = 1;
+			vertical_velocity = PLAYER_JUMP_VELOCITY;
+		}
+	}
+
+	if (keyboard_state[SDL_SCANCODE_E]) {
+		if (context.shoot_timer <= 0) {
+			switch (context.weapon_type) {
+			case WT_MACHINE_GUN: {
+				context.shoot_timer = 0.05f;
+				spawn_projectile(PT_BULLET, player->aabb.position[0], player->aabb.position[1], 400, frandr(-15, 15), 9, on_bullet_collide, on_bullet_collide_static);
+				context.weapon_kick = 100;
+				render_screen_shake_add(0.05f, 0.15f);
+			} break;
+			case WT_SHOTGUN: {
+				context.shoot_timer = 0.75f;
+				render_screen_shake_add(0.1f, 0.75f);
+				for (u32 i = 0; i < 15; ++i) {
+					f32 vy = frandr(-35, 35);
+					f32 vx = frandr(150, 210);
+					spawn_projectile(PT_BULLET, player->aabb.position[0], player->aabb.position[1], vx, vy, 0.25f, on_bullet_collide, on_bullet_collide_static);
+				}
+			} break;
+			case WT_ROCKET_LAUNCHER: {
+				context.shoot_timer = 1.25f;
+				spawn_projectile(PT_ROCKET, player->aabb.position[0], player->aabb.position[1], 200, 0, 9, on_rocket_collide, on_rocket_collide);
+			} break;
+			case WT_PISTOL: {
+				context.shoot_timer = 0.25f;
+				spawn_projectile(PT_BULLET, player->aabb.position[0], player->aabb.position[1], 300, 0, 9, on_bullet_collide, on_bullet_collide_static);
+				render_screen_shake_add(0.05f, 0.03f);
+			} break;
+			case WT_REVOLVER: {
+				context.shoot_timer = 0.55f;
+				spawn_projectile(PT_BULLET_LARGE, player->aabb.position[0], player->aabb.position[1], 300, 0, 9, on_bullet_large_collide, on_bullet_collide_static);
+				render_screen_shake_add(0.1f, 0.75f);
+			} break;
+			}
+		}
+	}
+
+	if (context.weapon_kick >= 0) {
+		horizontal_velocity = player->is_flipped ? context.weapon_kick : -context.weapon_kick;
+	}
+
+	player->velocity[0] = horizontal_velocity;
+	player->velocity[1] = vertical_velocity;
+}
+
+SDL_Texture *to_texture(SDL_Surface *surface, u8 should_destroy_surface) {
+	SDL_Texture *texture = SDL_CreateTextureFromSurface(render_context.renderer, surface);
+
+	if (should_destroy_surface) {
+		SDL_FreeSurface(surface);
+	}
+
+	return texture;
+}
+
+SDL_Texture *get_text_texture(TTF_Font *font, const char *text) {
+	SDL_Surface *surface = TTF_RenderUTF8_Blended(font, text, (SDL_Color){255, 255, 255, 255});
+	return to_texture(surface, 1);
+}
+
 int main(void) {
 	srand(time(NULL));
 
@@ -278,6 +387,7 @@ int main(void) {
 	entity_setup(&entity_context);
 	render_setup(&render_context);
 	physics_setup(&physics_context);
+	input_setup(&input_context);
 
 	// Set up collision layer matrix.
 	physics_context.mask_array[0] = 10;
@@ -341,91 +451,14 @@ int main(void) {
 	trigger->on_trigger = on_fire_trigger;
 
 	reset();
+	SDL_GL_SetSwapInterval(1);
 
-	while (!glfwWindowShouldClose(render_context.window)) {
-		context.time_now = glfwGetTime();
-		context.delta_time = context.time_now - context.time_last_frame;
+	while (!context.should_quit) {
+		context.time_now = (float)SDL_GetTicks();
+		context.delta_time = (context.time_now - context.time_last_frame) / 1000;
 		context.time_last_frame = context.time_now;
 
-		// Handle user input and player movement.
-		{
-			f32 horizontal_velocity = 0;
-			f32 vertical_velocity = player->velocity[1];
-
-			context.weapon_kick -= 1000 * context.delta_time;
-
-			if (glfwGetKey(render_context.window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-				glfwSetWindowShouldClose(render_context.window, GLFW_TRUE);
-
-			// Variable jump height.
-			if (glfwGetKey(render_context.window, GLFW_KEY_F) == GLFW_RELEASE && context.jump_key_state == GLFW_PRESS) {
-				vertical_velocity *= 0.5f;
-				context.jump_key_state = GLFW_RELEASE;
-			}
-
-			if (glfwGetKey(render_context.window, GLFW_KEY_T) == GLFW_PRESS) {
-				horizontal_velocity += PLAYER_MOVEMENT_SPEED;
-				player->is_flipped = 0;
-			}
-
-			if (glfwGetKey(render_context.window, GLFW_KEY_R) == GLFW_PRESS) {
-				horizontal_velocity -= PLAYER_MOVEMENT_SPEED;
-				player->is_flipped = 1;
-			}
-
-			// Jump.
-			if (glfwGetKey(render_context.window, GLFW_KEY_F) == GLFW_PRESS) {
-				if (player->is_grounded) {
-					player->is_grounded = 0;
-					context.jump_key_state = GLFW_PRESS;
-					vertical_velocity = PLAYER_JUMP_VELOCITY;
-				}
-			}
-
-			// Shoot.
-			if (glfwGetKey(render_context.window, GLFW_KEY_E) == GLFW_PRESS) {
-				if (context.shoot_timer <= 0) {
-					switch (context.weapon_type) {
-					case WT_MACHINE_GUN: {
-						context.shoot_timer = 0.05f;
-						spawn_projectile(PT_BULLET, player->aabb.position[0], player->aabb.position[1], 400, frandr(-15, 15), 9, on_bullet_collide, on_bullet_collide_static);
-						context.weapon_kick = 100;
-						render_screen_shake_add(0.05f, 0.15f);
-					} break;
-					case WT_SHOTGUN: {
-						context.shoot_timer = 0.75f;
-						render_screen_shake_add(0.1f, 0.75f);
-						for (u32 i = 0; i < 15; ++i) {
-							f32 vy = frandr(-35, 35);
-							f32 vx = frandr(150, 210);
-							spawn_projectile(PT_BULLET, player->aabb.position[0], player->aabb.position[1], vx, vy, 0.25f, on_bullet_collide, on_bullet_collide_static);
-						}
-					} break;
-					case WT_ROCKET_LAUNCHER: {
-						context.shoot_timer = 1.25f;
-						spawn_projectile(PT_ROCKET, player->aabb.position[0], player->aabb.position[1], 200, 0, 9, on_rocket_collide, on_rocket_collide);
-					} break;
-					case WT_PISTOL: {
-						context.shoot_timer = 0.25f;
-						spawn_projectile(PT_BULLET, player->aabb.position[0], player->aabb.position[1], 300, 0, 9, on_bullet_collide, on_bullet_collide_static);
-						render_screen_shake_add(0.05f, 0.03f);
-					} break;
-					case WT_REVOLVER: {
-						context.shoot_timer = 0.55f;
-						spawn_projectile(PT_BULLET_LARGE, player->aabb.position[0], player->aabb.position[1], 300, 0, 9, on_bullet_large_collide, on_bullet_collide_static);
-						render_screen_shake_add(0.1f, 0.75f);
-					} break;
-					}
-				}
-			}
-
-			if (context.weapon_kick >= 0) {
-				horizontal_velocity = player->is_flipped ? context.weapon_kick : -context.weapon_kick;
-			}
-
-			player->velocity[0] = horizontal_velocity;
-			player->velocity[1] = vertical_velocity;
-		}
+		handle_input();
 
 		// Update game state.
 		{
@@ -458,7 +491,6 @@ int main(void) {
 		}
 
 		// Clear screen, etc.
-		glfwPollEvents();
 		glClearColor(0.0, 0.0, 0.0, 1);
 		glClear(GL_COLOR_BUFFER_BIT);
 
@@ -568,6 +600,6 @@ int main(void) {
 		// glUseProgram(render_context.text_shader);
 		// render_text(130, 130, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", (vec4){1, 1, 1, 1});
 
-		glfwSwapBuffers(render_context.window);
+		SDL_GL_SwapWindow(render_context.window);
 	}
 }

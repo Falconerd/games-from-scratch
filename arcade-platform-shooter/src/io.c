@@ -15,3 +15,16 @@ char *read_file_into_buffer(const char *path) {
 	fclose(fp);
 	return buffer;
 }
+
+int write_buffer_into_file(void *buffer, size_t bufsize, const char *path) {
+	FILE *fp = fopen(path, "wb");
+	if (!fp)
+		error_and_exit(-1, "Can't read file");
+	size_t r = fwrite(buffer, bufsize, 1, fp);
+	fclose(fp);
+	if (r != 1) {
+		printf("r: %d\n", r);
+		return 1;
+	}
+	return 0;
+}

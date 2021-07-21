@@ -5,34 +5,49 @@
 
 static Render_Context *context;
 
-static void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 static void texture_setup(u32 texture);
 static u32 shader_setup(const char *vert_path, const char *frag_path);
 
 void render_setup(Render_Context *render_context) {
 	context = render_context;
 	// Setup the window.
-	glfwSetErrorCallback(error_and_exit);
-	if (!glfwInit()) {
-		error_and_exit(-1, "Failed to init GLFW");
+
+	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+		printf("Could not init SDL\n");
+		exit(1);
 	}
 
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
-	context->window = glfwCreateWindow(WIDTH * SCALE, HEIGHT * SCALE, GAME_TITLE, NULL, NULL);
+	context->window = SDL_CreateWindow(GAME_TITLE, 0, 0, WIDTH * SCALE, HEIGHT * SCALE, SDL_WINDOW_OPENGL);
 	if (!context->window) {
-		error_and_exit(-1, "Failed to create window");
+		printf("Failed to init window: %s\n", SDL_GetError());
+		exit(1);
 	}
 
-	glfwMakeContextCurrent(context->window);
+	// Create SDL renderer used for text.
+	context->renderer = SDL_CreateRenderer(context->window, -1, 0);
+	if (!context->renderer) {
+		printf("Failed to init SDL renderer: %s\n", SDL_GetError());
+		exit(1);
+	}
 
-	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+	// Create OpenGL context used for the majority of the graphics.
+	SDL_GL_CreateContext(context->window);
+	if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
 		error_and_exit(-1, "Failed to init GLAD");
 	}
 
+	printf("OpenGL loaded\n");
+	printf("Vendor:   %s\n", glGetString(GL_VENDOR));
+	printf("Renderer: %s\n", glGetString(GL_RENDERER));
+	printf("Version:  %s\n", glGetString(GL_VERSION));
+
 	glViewport(0, 0, WIDTH * SCALE, HEIGHT * SCALE);
-	glfwSetFramebufferSizeCallback(context->window, framebuffer_size_callback);
 
 	// Setup shader and buffers.
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -130,10 +145,6 @@ void render_screen_shake(f32 delta_time) {
 	glUseProgram(context->shader);
 	mat4x4_ortho(context->projection, 0 + x, WIDTH + x, 0 + y, HEIGHT + y, -2.0f, 2.0f);
 	glUniformMatrix4fv(glGetUniformLocation(context->shader, "projection"), 1, GL_FALSE, &context->projection[0][0]);
-}
-
-static void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
-	glViewport(0, 0, width, height);
 }
 
 static void texture_setup(u32 texture) {

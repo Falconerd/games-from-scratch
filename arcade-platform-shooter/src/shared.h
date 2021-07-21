@@ -1,7 +1,8 @@
 #ifndef shared_h_INCLUDED
 #define shared_h_INCLUDED
 #include <glad/glad.h>
-#include <GLFW/glfw3.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -166,7 +167,8 @@ void entity_destroy(u32 index);
 ////////////////////////////////////////////////////////////////////////
 
 struct render_context {
-	GLFWwindow *window;
+	SDL_Window *window;
+	SDL_Renderer *renderer;
 	m4 projection;
 	u32 color_texture;
 	u32 shader;
@@ -203,11 +205,20 @@ void render_screen_shake(f32 delta_time);
 ////////////////////////////////////////////////////////////////////////
 
 char *read_file_into_buffer(const char *path);
+int write_buffer_into_file(void *buffer, size_t length, const char *path);
 
 ////////////////////////////////////////////////////////////////////////
 // User input.
 ////////////////////////////////////////////////////////////////////////
 
-void input_key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
+typedef struct input_context {
+	u8 left;
+	u8 jump;
+	u8 right;
+	u8 shoot;
+} Input_Context;
+
+void input_setup(Input_Context *input_context);
+// void input_key_callback(SDL_window *window, int key, int scancode, int action, int mods);
 
 #endif

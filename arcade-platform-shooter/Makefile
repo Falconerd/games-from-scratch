@@ -1,8 +1,8 @@
 flags = -Wall -pedantic -std=c99
-libs = -lX11 -lglfw -ldl -lm
+libs = -D_REENTRANT -pthread -lm -ldl -lSDL2 -lSDL2_ttf
 inc = -I./deps/include
 
-build: main.o glad.o render.o shared.o io.o entity.o physics.o
+build: main.o glad.o render.o shared.o io.o input.o entity.o physics.o
 	gcc -g3 -O0 $(flags) $(libs) $(inc) $^
 
 main.o: src/main.c
@@ -18,6 +18,9 @@ shared.o: src/shared.c
 	gcc -c -g3 -O0 $(inc) $^
 
 io.o: src/io.c
+	gcc -c -g3 -O0 $(inc) $^
+
+input.o: src/input.c
 	gcc -c -g3 -O0 $(inc) $^
 
 entity.o: src/entity.c

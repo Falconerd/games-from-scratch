@@ -14,7 +14,7 @@
     - [X] Pistol weapon
     - [X] Revolver weapon
         - [X] Large bullets
-    - [ ] Bullets should not collide more than once with the same enemy
+    - [X] Bullets should not collide more than once with the same enemy
     - [/] Enemy death animations
         - [X] Perhaps make enemies fall off screen
         - [ ] Rotation
