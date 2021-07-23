@@ -1,18 +1,12 @@
 #version 330 core
+in vec2 uvs;
 out vec4 frag_color;
 
-in vec2 uvs;
-
+uniform sampler2D text;
 uniform vec4 color;
-uniform sampler2D texture_id;
-uniform float offset;
-uniform float width;
 
 void main() {
-	float x = 0.0f;
-	if (uvs.x == 1.0f) {
-		x = width;
-	}
-	frag_color = texture(texture_id, vec2(x, uvs.y)) * color;
+	frag_color = vec4(1, 1, 1, texture(text, uvs).r) * color;
+	// frag_color = vec4(1, 1, 1, 1);
 }
 

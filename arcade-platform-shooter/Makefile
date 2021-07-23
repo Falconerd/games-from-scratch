@@ -1,6 +1,6 @@
 flags = -Wall -pedantic -std=c99
-libs = -D_REENTRANT -pthread -lm -ldl -lSDL2 -lSDL2_ttf
-inc = -I./deps/include
+libs = -D_REENTRANT -pthread -lm -ldl -lSDL2 -lfreetype
+inc = -I./deps/include -I/usr/include/freetype2
 
 build: main.o glad.o render.o shared.o io.o input.o entity.o physics.o
 	gcc -g3 -O0 $(flags) $(libs) $(inc) $^

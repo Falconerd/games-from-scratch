@@ -365,21 +365,6 @@ static void handle_input() {
 	player->velocity[1] = vertical_velocity;
 }
 
-SDL_Texture *to_texture(SDL_Surface *surface, u8 should_destroy_surface) {
-	SDL_Texture *texture = SDL_CreateTextureFromSurface(render_context.renderer, surface);
-
-	if (should_destroy_surface) {
-		SDL_FreeSurface(surface);
-	}
-
-	return texture;
-}
-
-SDL_Texture *get_text_texture(TTF_Font *font, const char *text) {
-	SDL_Surface *surface = TTF_RenderUTF8_Blended(font, text, (SDL_Color){255, 255, 255, 255});
-	return to_texture(surface, 1);
-}
-
 int main(void) {
 	srand(time(NULL));
 
@@ -568,6 +553,12 @@ int main(void) {
 				// Render entity colliders.
 				glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 				render_aabb(entity->aabb, (vec4){0, 1, 0, 1});
+
+				render_quad(entity->aabb.position[0] - entity->sprite_size[0] * 0.5,
+				            entity->aabb.position[1] - entity->sprite_size[1] * 0.5,
+				            entity->sprite_size[0],
+				            entity->sprite_size[1],
+				            (vec4){1, 1, 0, 0.5});
 				glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 #endif
 			}
@@ -600,6 +591,8 @@ int main(void) {
 		// glUseProgram(render_context.text_shader);
 		// render_text(130, 130, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", (vec4){1, 1, 1, 1});
 
+		glUseProgram(render_context.text_shader);
+		render_text("ABCD", 100, 100, (vec4){1, 1, 1, 1});
 		SDL_GL_SwapWindow(render_context.window);
 	}
 }

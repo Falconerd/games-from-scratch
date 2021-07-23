@@ -20,13 +20,12 @@
         - [ ] Rotation
     - [X] Rocket launcher acceleration
     - [/] Rocket launcher trail smoke
+    - [ ] Text rendering using FreeType
     - [ ] Add debug hotkey
     - [ ] Simple input system
     - [ ] White -> Yellow -> Red explosions
     - [ ] Audio
         - Invesigate options, probably use miniaudio library
-    - [ ] Text rendering
-        - Probably use very simple bitmap rendering
     - [ ] Draw animations
         - [ ] Player
         - [ ] Small enemy

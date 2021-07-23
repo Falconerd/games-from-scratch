@@ -3,6 +3,23 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "../deps/lib/stb_image.h"
 
+#include <ft2build.h>
+#include FT_FREETYPE_H
+
+typedef struct character_data {
+	f32 advance_x;
+	f32 advance_y;
+	f32 bitmap_width;
+	f32 bitmap_height;
+	f32 bitmap_left;
+	f32 bitmap_top;
+	f32 offset_x;
+} Character_Data;
+
+static Character_Data character_data_array[128];
+static u32 text_atlas_width = 0;
+static u32 text_atlas_height = 0;
+
 static Render_Context *context;
 
 static void texture_setup(u32 texture);
@@ -10,8 +27,8 @@ static u32 shader_setup(const char *vert_path, const char *frag_path);
 
 void render_setup(Render_Context *render_context) {
 	context = render_context;
-	// Setup the window.
 
+	// Setup the window.
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		printf("Could not init SDL\n");
 		exit(1);
@@ -29,14 +46,6 @@ void render_setup(Render_Context *render_context) {
 		exit(1);
 	}
 
-	// Create SDL renderer used for text.
-	context->renderer = SDL_CreateRenderer(context->window, -1, 0);
-	if (!context->renderer) {
-		printf("Failed to init SDL renderer: %s\n", SDL_GetError());
-		exit(1);
-	}
-
-	// Create OpenGL context used for the majority of the graphics.
 	SDL_GL_CreateContext(context->window);
 	if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
 		error_and_exit(-1, "Failed to init GLAD");
@@ -112,10 +121,74 @@ void render_setup(Render_Context *render_context) {
 	// Setup circle shader.
 	context->circle_shader = shader_setup("./shaders/circle.vert", "./shaders/circle.frag");
 
-	// Setup text shader and texture.
+	// Setup text shader.
 	context->text_shader = shader_setup("./shaders/text.vert", "./shaders/text.frag");
-	context->text_texture = render_texture_create("./assets/font_gravity_8x10.png");
 
+	glGenVertexArrays(1, &context->text_vao);
+	glGenBuffers(1, &context->text_vbo);
+
+	glBindVertexArray(context->text_vao);
+	glBindBuffer(GL_ARRAY_BUFFER, context->text_vbo);
+
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(f32), NULL);
+	glEnableVertexAttribArray(0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// Init freetype library.
+	FT_Library ft;
+	if (FT_Init_FreeType(&ft)) {
+		error_and_exit(EXIT_FAILURE, "Could not init freetype.");
+	}
+
+	// Load font face.
+	FT_Face face;
+	if (FT_New_Face(ft, "./assets/PxPlus_IBM_VGA_8x16.ttf", 0, &face)) {
+		error_and_exit(EXIT_FAILURE, "Could not load font.");
+	}
+
+	FT_Set_Pixel_Sizes(face, 0, 8);
+
+	// Create texture atlas for font.
+	for (u32 i = 32; i < 128; ++i) {
+		if (FT_Load_Char(face, i, FT_LOAD_RENDER)) {
+			printf("Failed to load char '%c'\n", i);
+			continue;
+		}
+
+		text_atlas_width += face->glyph->bitmap.width;
+		if (text_atlas_height < face->glyph->bitmap.rows) {
+			text_atlas_height = face->glyph->bitmap.rows;
+		}
+	}
+
+	printf("text_atlas_width: %u, text_atlas_height: %u\n", text_atlas_width, text_atlas_height);
+
+	glActiveTexture(GL_TEXTURE0);
+	glGenTextures(1, &context->text_texture);
+	glBindTexture(GL_TEXTURE_2D, context->text_texture);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, text_atlas_width, text_atlas_height, 0, GL_RED, GL_UNSIGNED_BYTE, 0);
+
+	for (u32 i = 32, w = 0; i < 128; ++i, ++w) {
+		if (FT_Load_Char(face, i, FT_LOAD_RENDER)) {
+			printf("Failed to load char '%c'\n", i);
+			continue;
+		}
+
+		character_data_array[w].advance_x = face->glyph->advance.x >> 6;
+		character_data_array[w].advance_y = face->glyph->advance.y >> 6;
+		character_data_array[w].bitmap_width = face->glyph->bitmap.width;
+		character_data_array[w].bitmap_height = face->glyph->bitmap.rows;
+		character_data_array[w].bitmap_left = face->glyph->bitmap_left;
+		character_data_array[w].bitmap_top = face->glyph->bitmap_top;
+		character_data_array[w].offset_x = (f32)w / text_atlas_width;
+
+		glTexSubImage2D(GL_TEXTURE_2D, 0, w, 0, face->glyph->bitmap.width, face->glyph->bitmap.rows,
+		                GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
+	}
+
+	// Setup projection matrix for each shader.
 	mat4x4_ortho(context->projection, 0, WIDTH, 0, HEIGHT, -2.0f, 2.0f);
 
 	glUseProgram(context->shader);
@@ -194,33 +267,50 @@ static u32 shader_setup(const char *vert_path, const char *frag_path) {
 	return shader;
 }
 
-void render_text(f32 x, f32 y, const char *text, vec4 color) {
-	u32 length = strlen(text);
-	for (u32 i = 0; i < length; ++i) {
-		// for (const char *p = text; *p; ++p) {
-		if (text[i] - 'A' >= 0 && text[i] - 'A' <= 25) {
-			// printf("char: %u\n", (u8)text[i] - 'A');
-		} else if (text[i] - '0' >= 0 && text[i] - '0' <= 9) {
-			// printf("num: %u\n", (u8)text[i] - '0');
-		}
-		m4 model;
-		mat4x4_identity(model);
+typedef struct point {
+	f32 x, y, s, t;
+} Point;
 
-		mat4x4_translate(model, x, y, 0);
-		mat4x4_scale_aniso(model, model, 8, 8, 1.0f);
+void render_text(const char *text, f32 x, f32 y, vec4 color) {
+	Point coords[6 * strlen(text)];
 
-		f32 offset = 0.0f;
-		f32 width = 8.0f / 288.0f;
+	u32 n = 0;
 
-		glUniformMatrix4fv(glGetUniformLocation(context->text_shader, "model"), 1, GL_FALSE, &model[0][0]);
-		glUniform4fv(glGetUniformLocation(context->text_shader, "color"), 1, color);
-		glUniform1fv(glGetUniformLocation(context->text_shader, "offset"), 1, &offset);
-		glUniform1fv(glGetUniformLocation(context->text_shader, "width"), 1, &offset);
+	for (const char *p = text; *p; ++p) {
+		Character_Data cd = character_data_array[*p];
+		f32 x2 = x + cd.bitmap_left;
+		f32 y2 = -y - cd.bitmap_top;
+		f32 w = cd.bitmap_width;
+		f32 h = cd.bitmap_height;
 
-		glBindTexture(GL_TEXTURE_2D, context->text_texture);
-		glBindVertexArray(context->quad_vao);
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		x += cd.advance_x;
+		y += cd.advance_y;
+
+		// Skip glyphs that have no pixels.
+		if (!w || !h)
+			continue;
+
+		coords[n++] = (Point){x2, -y2, cd.offset_x, 0};
+		coords[n++] = (Point){x2 + w, -y2, cd.offset_x + cd.bitmap_width / text_atlas_width, 0};
+		coords[n++] = (Point){x2, -y2 - h, cd.offset_x, cd.bitmap_height / text_atlas_height};
+		coords[n++] = (Point){x2 + w, -y2, cd.offset_x + cd.bitmap_width / text_atlas_width, 0};
+		coords[n++] = (Point){x2, -y2 - h, cd.offset_x, cd.bitmap_height / text_atlas_height};
+		coords[n++] = (Point){x2 + w, -y2 - h, cd.offset_x + cd.bitmap_width / text_atlas_width};
+		glUseProgram(context->shader);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		render_quad(x2, -y2, w, h, (vec4){0, 1, 0, 1});
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	}
+
+	glUseProgram(context->text_shader);
+
+	glUniform4fv(glGetUniformLocation(context->text_shader, "color"), 1, color);
+
+	glBindTexture(GL_TEXTURE_2D, context->text_texture);
+	glBindVertexArray(context->text_vao);
+	glBindBuffer(GL_ARRAY_BUFFER, context->text_vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof coords, coords, GL_DYNAMIC_DRAW);
+	glDrawArrays(GL_TRIANGLES, 0, n);
 }
 
 void render_circle(f32 x, f32 y, f32 radius, vec4 color) {
