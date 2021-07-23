@@ -482,8 +482,7 @@ int main(void) {
 		glUseProgram(render_context.shader);
 
 		// Render terrain.
-		// It's rendered before physics is updated as physics may have some
-		// debug rendering.
+		// It's rendered before physics is updated as physics may have some debug rendering.
 		render_sprite(TERRAIN_TEXTURE, (vec3){0, 0, 0}, (vec2){256, 224}, 0, (vec4){1, 1, 1, 1}, 0);
 
 		// Update physics.
@@ -592,7 +591,7 @@ int main(void) {
 		// render_text(130, 130, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", (vec4){1, 1, 1, 1});
 
 		glUseProgram(render_context.text_shader);
-		render_text("ABCD", 100, 100, (vec4){1, 1, 1, 1});
+		render_text("SHOTGUN", 100, 100, (vec4){1, 1, 1, 1});
 		SDL_GL_SwapWindow(render_context.window);
 	}
 }

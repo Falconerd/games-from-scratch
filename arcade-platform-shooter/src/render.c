@@ -7,18 +7,21 @@
 #include FT_FREETYPE_H
 
 typedef struct character_data {
-	f32 advance_x;
-	f32 advance_y;
-	f32 bitmap_width;
-	f32 bitmap_height;
-	f32 bitmap_left;
-	f32 bitmap_top;
-	f32 offset_x;
+	u32 texture;
+	u32 advance_x;
+	u32 advance_y;
+	i32 width;
+	i32 height;
+	i32 left;
+	i32 top;
 } Character_Data;
 
 static Character_Data character_data_array[128];
 static u32 text_atlas_width = 0;
 static u32 text_atlas_height = 0;
+
+static FT_Face face;
+static FT_GlyphSlot g;
 
 static Render_Context *context;
 
@@ -129,6 +132,7 @@ void render_setup(Render_Context *render_context) {
 
 	glBindVertexArray(context->text_vao);
 	glBindBuffer(GL_ARRAY_BUFFER, context->text_vbo);
+	glBufferData(GL_ARRAY_BUFFER, NULL, NULL, GL_STATIC_DRAW);
 
 	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(f32), NULL);
 	glEnableVertexAttribArray(0);
@@ -142,61 +146,78 @@ void render_setup(Render_Context *render_context) {
 	}
 
 	// Load font face.
-	FT_Face face;
-	if (FT_New_Face(ft, "./assets/PxPlus_IBM_VGA_8x16.ttf", 0, &face)) {
+	if (FT_New_Face(ft, "./assets/8-BIT_WONDER.TTF", 0, &face)) {
 		error_and_exit(EXIT_FAILURE, "Could not load font.");
 	}
 
-	FT_Set_Pixel_Sizes(face, 0, 8);
+	FT_Set_Pixel_Sizes(face, 0, 12 * SCALE);
 
-	// Create texture atlas for font.
-	for (u32 i = 32; i < 128; ++i) {
-		if (FT_Load_Char(face, i, FT_LOAD_RENDER)) {
-			printf("Failed to load char '%c'\n", i);
-			continue;
-		}
+	g = face->glyph;
 
-		text_atlas_width += face->glyph->bitmap.width;
-		if (text_atlas_height < face->glyph->bitmap.rows) {
-			text_atlas_height = face->glyph->bitmap.rows;
-		}
-	}
-
-	printf("text_atlas_width: %u, text_atlas_height: %u\n", text_atlas_width, text_atlas_height);
-
-	glActiveTexture(GL_TEXTURE0);
-	glGenTextures(1, &context->text_texture);
-	glBindTexture(GL_TEXTURE_2D, context->text_texture);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, text_atlas_width, text_atlas_height, 0, GL_RED, GL_UNSIGNED_BYTE, 0);
 
-	for (u32 i = 32, w = 0; i < 128; ++i, ++w) {
+	for (u32 i = 0, n = 0; i < 128; ++i) {
 		if (FT_Load_Char(face, i, FT_LOAD_RENDER)) {
-			printf("Failed to load char '%c'\n", i);
+			printf("Failed to load glyph '%c'\n", i);
 			continue;
 		}
 
-		character_data_array[w].advance_x = face->glyph->advance.x >> 6;
-		character_data_array[w].advance_y = face->glyph->advance.y >> 6;
-		character_data_array[w].bitmap_width = face->glyph->bitmap.width;
-		character_data_array[w].bitmap_height = face->glyph->bitmap.rows;
-		character_data_array[w].bitmap_left = face->glyph->bitmap_left;
-		character_data_array[w].bitmap_top = face->glyph->bitmap_top;
-		character_data_array[w].offset_x = (f32)w / text_atlas_width;
+		u32 texture;
+		glGenTextures(1, &texture);
+		glBindTexture(GL_TEXTURE_2D, texture);
+		glTexImage2D(
+			GL_TEXTURE_2D,
+			0,
+			GL_RED,
+			g->bitmap.width,
+			g->bitmap.rows,
+			0,
+			GL_RED,
+			GL_UNSIGNED_BYTE,
+			g->bitmap.buffer
+		);
 
-		glTexSubImage2D(GL_TEXTURE_2D, 0, w, 0, face->glyph->bitmap.width, face->glyph->bitmap.rows,
-		                GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+		Character_Data *character_data = &character_data_array[n++];
+		character_data->texture = texture;
+		character_data->advance_x = g->advance.x;
+		character_data->advance_y = g->advance.y;
+		character_data->width = g->bitmap.width;
+		character_data->height = g->bitmap.rows;
+		character_data->top = g->bitmap_top;
+		character_data->left = g->bitmap_left;
 	}
+
+	FT_Done_Face(face);
+	FT_Done_FreeType(ft);
+
+	glGenVertexArrays(1, &context->text_vao);
+	glGenBuffers(1, &context->text_vbo);
+	glBindVertexArray(context->text_vao);
+	glBindBuffer(GL_ARRAY_BUFFER, context->text_vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(f32) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(f32), 0);
+	glEnableVertexAttribArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
 
 	// Setup projection matrix for each shader.
 	mat4x4_ortho(context->projection, 0, WIDTH, 0, HEIGHT, -2.0f, 2.0f);
 
 	glUseProgram(context->shader);
 	glUniformMatrix4fv(glGetUniformLocation(context->shader, "projection"), 1, GL_FALSE, &context->projection[0][0]);
-	glUseProgram(context->text_shader);
-	glUniformMatrix4fv(glGetUniformLocation(context->text_shader, "projection"), 1, GL_FALSE, &context->projection[0][0]);
 	glUseProgram(context->circle_shader);
 	glUniformMatrix4fv(glGetUniformLocation(context->circle_shader, "projection"), 1, GL_FALSE, &context->projection[0][0]);
+
+	m4 text_projection;
+	mat4x4_identity(text_projection);
+	mat4x4_ortho(text_projection, 0, WIDTH * SCALE, 0, HEIGHT * SCALE, -2.0f, 2.0f);
+	glUseProgram(context->text_shader);
+	glUniformMatrix4fv(glGetUniformLocation(context->text_shader, "projection"), 1, GL_FALSE, &text_projection[0][0]);
 }
 
 void render_screen_shake_add(f32 duration, f32 magnitude) {
@@ -272,45 +293,41 @@ typedef struct point {
 } Point;
 
 void render_text(const char *text, f32 x, f32 y, vec4 color) {
-	Point coords[6 * strlen(text)];
+	glUseProgram(context->text_shader);
+	glUniform4fv(glGetUniformLocation(context->text_shader, "color"), 1, color);
+	glActiveTexture(GL_TEXTURE0);
+	glBindVertexArray(context->text_vao);
 
-	u32 n = 0;
+	x *= SCALE;
+	y *= SCALE;
 
 	for (const char *p = text; *p; ++p) {
 		Character_Data cd = character_data_array[*p];
-		f32 x2 = x + cd.bitmap_left;
-		f32 y2 = -y - cd.bitmap_top;
-		f32 w = cd.bitmap_width;
-		f32 h = cd.bitmap_height;
 
-		x += cd.advance_x;
-		y += cd.advance_y;
+		f32 x2 = x + cd.left;
+		f32 y2 = y - (cd.height - cd.top);
+		f32 w = cd.width;
+		f32 h = cd.height;
 
-		// Skip glyphs that have no pixels.
-		if (!w || !h)
-			continue;
+		f32 vertices[6][4] = {
+			{x2, y2 + h, 0, 0},
+			{x2, y2, 0, 1},
+			{x2 + w, y2, 1, 1},
 
-		coords[n++] = (Point){x2, -y2, cd.offset_x, 0};
-		coords[n++] = (Point){x2 + w, -y2, cd.offset_x + cd.bitmap_width / text_atlas_width, 0};
-		coords[n++] = (Point){x2, -y2 - h, cd.offset_x, cd.bitmap_height / text_atlas_height};
-		coords[n++] = (Point){x2 + w, -y2, cd.offset_x + cd.bitmap_width / text_atlas_width, 0};
-		coords[n++] = (Point){x2, -y2 - h, cd.offset_x, cd.bitmap_height / text_atlas_height};
-		coords[n++] = (Point){x2 + w, -y2 - h, cd.offset_x + cd.bitmap_width / text_atlas_width};
-		glUseProgram(context->shader);
-		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-		render_quad(x2, -y2, w, h, (vec4){0, 1, 0, 1});
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+			{x2, y2 + h, 0, 0},
+			{x2 + w, y2, 1, 1},
+			{x2 + w, y2 + h, 1, 0}
+		};
+
+		glBindTexture(GL_TEXTURE_2D, cd.texture);
+		glBindBuffer(GL_ARRAY_BUFFER, context->text_vbo);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof vertices, vertices);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		x += (cd.advance_x / 64);
 	}
-
-	glUseProgram(context->text_shader);
-
-	glUniform4fv(glGetUniformLocation(context->text_shader, "color"), 1, color);
-
-	glBindTexture(GL_TEXTURE_2D, context->text_texture);
-	glBindVertexArray(context->text_vao);
-	glBindBuffer(GL_ARRAY_BUFFER, context->text_vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof coords, coords, GL_DYNAMIC_DRAW);
-	glDrawArrays(GL_TRIANGLES, 0, n);
+	glBindVertexArray(0);
+	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 void render_circle(f32 x, f32 y, f32 radius, vec4 color) {
