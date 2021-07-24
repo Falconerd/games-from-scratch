@@ -23,7 +23,7 @@ int write_buffer_into_file(void *buffer, size_t bufsize, const char *path) {
 	size_t r = fwrite(buffer, bufsize, 1, fp);
 	fclose(fp);
 	if (r != 1) {
-		printf("r: %d\n", r);
+		printf("r: %zu\n", r);
 		return 1;
 	}
 	return 0;

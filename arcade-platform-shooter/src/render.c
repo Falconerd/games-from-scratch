@@ -132,7 +132,7 @@ void render_setup(Render_Context *render_context) {
 
 	glBindVertexArray(context->text_vao);
 	glBindBuffer(GL_ARRAY_BUFFER, context->text_vbo);
-	glBufferData(GL_ARRAY_BUFFER, NULL, NULL, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, 0, NULL, GL_STATIC_DRAW);
 
 	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(f32), NULL);
 	glEnableVertexAttribArray(0);
@@ -292,7 +292,7 @@ typedef struct point {
 	f32 x, y, s, t;
 } Point;
 
-void render_text(const char *text, f32 x, f32 y, vec4 color) {
+void render_text(const char *text, f32 x, f32 y, vec4 color, u8 is_centered) {
 	glUseProgram(context->text_shader);
 	glUniform4fv(glGetUniformLocation(context->text_shader, "color"), 1, color);
 	glActiveTexture(GL_TEXTURE0);
@@ -300,6 +300,16 @@ void render_text(const char *text, f32 x, f32 y, vec4 color) {
 
 	x *= SCALE;
 	y *= SCALE;
+
+	if (is_centered) {
+		f32 width = 0;
+
+		for (const char *p = text; *p; ++p) {
+			width += character_data_array[*p].width;
+		}
+
+		x -= width * 0.5;
+	}
 
 	for (const char *p = text; *p; ++p) {
 		Character_Data cd = character_data_array[*p];

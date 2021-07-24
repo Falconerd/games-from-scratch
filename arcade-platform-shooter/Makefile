@@ -3,31 +3,31 @@ libs = -D_REENTRANT -pthread -lm -ldl -lSDL2 -lfreetype
 inc = -I./deps/include -I/usr/include/freetype2
 
 build: main.o glad.o render.o shared.o io.o input.o entity.o physics.o
-	gcc -g3 -O0 $(flags) $(libs) $(inc) $^
+	clang -g3 -O0 $(flags) $(libs) $(inc) $^
 
 main.o: src/main.c
-	gcc -c -g3 -O0 $(inc) $^
+	clang -c -g3 -O0 $(inc) $^
 
 glad.o: deps/src/glad.c
-	gcc -c -g3 -O0 $(inc) $^
+	clang -c -g3 -O0 $(inc) $^
 
 render.o: src/render.c
-	gcc -c -g3 -O0 $(inc) $^
+	clang -c -g3 -O0 $(inc) $^
 
 shared.o: src/shared.c
-	gcc -c -g3 -O0 $(inc) $^
+	clang -c -g3 -O0 $(inc) $^
 
 io.o: src/io.c
-	gcc -c -g3 -O0 $(inc) $^
+	clang -c -g3 -O0 $(inc) $^
 
 input.o: src/input.c
-	gcc -c -g3 -O0 $(inc) $^
+	clang -c -g3 -O0 $(inc) $^
 
 entity.o: src/entity.c
-	gcc -c -g3 -O0 $(inc) $^
+	clang -c -g3 -O0 $(inc) $^
 
 physics.o: src/physics.c
-	gcc -c -g3 -O0 $(inc) $^
+	clang -c -g3 -O0 $(inc) $^
 
 run:
 	./a.out

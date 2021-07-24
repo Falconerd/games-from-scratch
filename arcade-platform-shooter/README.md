@@ -15,14 +15,14 @@
     - [X] Revolver weapon
         - [X] Large bullets
     - [X] Bullets should not collide more than once with the same enemy
-    - [/] Enemy death animations
+    - [X] Enemy death animations
         - [X] Perhaps make enemies fall off screen
-        - [ ] Rotation
+        - [X] Rotation
     - [X] Rocket launcher acceleration
-    - [/] Rocket launcher trail smoke
-    - [ ] Text rendering using FreeType
+    - [X] Rocket launcher trail smoke
+    - [X] Text rendering using FreeType
     - [ ] Add debug hotkey
-    - [ ] Simple input system
+    - [X] Simple input system
     - [ ] White -> Yellow -> Red explosions
     - [ ] Audio
         - Invesigate options, probably use miniaudio library

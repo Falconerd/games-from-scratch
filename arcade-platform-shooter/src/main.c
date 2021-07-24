@@ -55,6 +55,10 @@ typedef struct game_context {
 
 	u8 jump_key_was_pressed;
 	u8 should_quit;
+
+	u32 score;
+
+	char score_string[10];
 } Game_Context;
 
 static Game_Context context = {0};
@@ -213,6 +217,7 @@ static void spawn_projectile(Projectile_Type type, f32 x, f32 y, f32 velocity_x,
 		context.rocket_smoke_timer = 0.01f;
 		return;
 	} break;
+	case PT_COUNT: break;
 	}
 	Entity *projectile = &entity_context.entity_array[projectile_id];
 	projectile->is_kinematic = 1;
@@ -247,7 +252,11 @@ static void on_box_collide(u32 self_id, u32 other_id, Hit hit) {
 		case WT_ROCKET_LAUNCHER: player->texture = PLAYER_ROCKET_LAUNCHER_TEXTURE; break;
 		case WT_PISTOL: player->texture = PLAYER_PISTOL_TEXTURE; break;
 		case WT_REVOLVER: player->texture = PLAYER_REVOLVER_TEXTURE; break;
+		case WT_COUNT: break;
 		}
+
+		++context.score;
+		sprintf(context.score_string, "%d", context.score);
 
 		spawn_box();
 	}
@@ -272,6 +281,8 @@ static void reset() {
 	context.weapon_type = WT_PISTOL;
 	player->texture = PLAYER_PISTOL_TEXTURE;
 	spawn_box();
+	context.score = 0;
+	sprintf(context.score_string, "%d", context.score);
 }
 
 static void handle_input() {
@@ -353,6 +364,7 @@ static void handle_input() {
 				spawn_projectile(PT_BULLET_LARGE, player->aabb.position[0], player->aabb.position[1], 300, 0, 9, on_bullet_large_collide, on_bullet_collide_static);
 				render_screen_shake_add(0.1f, 0.75f);
 			} break;
+			case WT_COUNT: break;
 			}
 		}
 	}
@@ -507,7 +519,7 @@ int main(void) {
 		// Spawn rocket smoke.
 		if (context.rocket_id > 0) {
 			Entity *rocket = &entity_context.entity_array[context.rocket_id];
-			if (context.rocket_smoke_timer > 0)
+			if (context.rocket_smoke_timer >= 0)
 				context.rocket_smoke_timer -= context.delta_time;
 
 			if (rocket->is_in_use && context.rocket_smoke_timer < 0) {
@@ -591,7 +603,8 @@ int main(void) {
 		// render_text(130, 130, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", (vec4){1, 1, 1, 1});
 
 		glUseProgram(render_context.text_shader);
-		render_text("SHOTGUN", 100, 100, (vec4){1, 1, 1, 1});
+		render_text(context.score_string, 128, 194, (vec4){1, 1, 1, 1}, 1);
+
 		SDL_GL_SwapWindow(render_context.window);
 	}
 }

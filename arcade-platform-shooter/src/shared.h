@@ -114,7 +114,7 @@ struct physics_context {
 	u32 trigger_array_count;
 	u32 trigger_array_max;
 	Trigger *trigger_array;
-	u8 mask_array[4];
+	u8 mask_array[5];
 };
 
 void physics_setup(Physics_Context *physics_context);
@@ -190,7 +190,7 @@ struct render_context {
 void render_setup(Render_Context *render_context);
 void render_quad(f32 x, f32 y, f32 width, f32 height, vec4 color);
 void render_circle(f32 x, f32 y, f32 radius, vec4 color);
-void render_text(const char *text, f32 x, f32 y, vec4 color);
+void render_text(const char *text, f32 x, f32 y, vec4 color, u8 is_centered);
 void render_sprite(u32 texture, vec3 position, vec2 size, f32 rotation, vec4 color, u8 is_flipped);
 void render_point(vec2 position, vec4 color);
 void render_aabb(AABB aabb, vec4 color);
