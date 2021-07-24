@@ -34,6 +34,7 @@
         - Probably use a simple FSM... Maybe link to entity system
     - [ ] Resolution stuff
         - Currently just runs in windowed more in NES resolution
+    - [ ] Invesigate why gcc isn't giving debug output
     - [ ] Profiler
         - Would be nice to see FPS, frame time, etc?
             - nsight, radeon profiler
