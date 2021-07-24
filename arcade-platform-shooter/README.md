@@ -1,9 +1,12 @@
 # Arcade platformer shooter
 
+Music from:
+    https://ryanavx.itch.io/breezys-mega-quest
+
 ## TODO in priority order
     - [/] Circle shader
         - Draw circle on a quad, move the quad
-        - Also need to scale in the pixel shader to keep pixel perfect
+        - [?] Also need to scale in the pixel shader to keep pixel perfect
     - [X] Rocket launcher circle animation
         - When the rocket hits something, a shockwave should expand from the impact point
     - [X] Screen-shake
@@ -21,11 +24,8 @@
     - [X] Rocket launcher acceleration
     - [X] Rocket launcher trail smoke
     - [X] Text rendering using FreeType
-    - [ ] Add debug hotkey
     - [X] Simple input system
-    - [ ] White -> Yellow -> Red explosions
-    - [ ] Audio
-        - Invesigate options, probably use miniaudio library
+    - [X] Audio
     - [ ] Draw animations
         - [ ] Player
         - [ ] Small enemy

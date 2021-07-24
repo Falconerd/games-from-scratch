@@ -2,7 +2,7 @@
 #define shared_h_INCLUDED
 #include <glad/glad.h>
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_mixer.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,7 +32,7 @@
 // Defines and flags.
 ////////////////////////////////////////////////////////////////////////
 
-#define DEBUG 1
+#define DEBUG 0
 
 #define PI 3.14159265f
 
@@ -219,6 +219,15 @@ typedef struct input_context {
 } Input_Context;
 
 void input_setup(Input_Context *input_context);
-// void input_key_callback(SDL_window *window, int key, int scancode, int action, int mods);
+
+////////////////////////////////////////////////////////////////////////
+// Audio.
+////////////////////////////////////////////////////////////////////////
+
+void audio_sound_load(Mix_Chunk **chunk, const char *path);
+void audio_sound_play(Mix_Chunk *sound);
+void audio_music_load(Mix_Music **music, const char *path);
+void audio_music_play(Mix_Music *music);
+void audio_setup();
 
 #endif

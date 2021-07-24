@@ -4,13 +4,6 @@
 // Types and context.
 ////////////////////////////////////////////////////////////////////////
 
-typedef struct spawn_region {
-	f32 x;
-	f32 y;
-	f32 w;
-	f32 h;
-} Spawn_Region;
-
 typedef enum weapon_type {
 	WT_MACHINE_GUN,
 	WT_SHOTGUN,
@@ -97,7 +90,23 @@ static u32 ENEMY_LARGE_TEXTURE;
 static u32 ENEMY_SMALL_ANGRY_TEXTURE;
 static u32 ENEMY_LARGE_ANGRY_TEXTURE;
 
-static Spawn_Region BOX_SPAWN_REGIONS[] = {
+static Mix_Music *TITLE_THEME;
+static Mix_Music *STAGE_1_THEME;
+
+static Mix_Chunk *JUMP_SOUND;
+static Mix_Chunk *SHOOT_SOUND;
+static Mix_Chunk *EXPLOSION_SOUND;
+static Mix_Chunk *ENEMY_DEATH_SOUND;
+static Mix_Chunk *REVOLVER_SOUND;
+static Mix_Chunk *SHOTGUN_SOUND;
+static Mix_Chunk *MACHINE_GUN_SOUND;
+static Mix_Chunk *ROCKET_LAUNCHED_SOUND;
+static Mix_Chunk *HURT_SOUND;
+static Mix_Chunk *PLAYER_DEATH_SOUND;
+static Mix_Chunk *BULLET_HIT_WALL_SOUND;
+static Mix_Chunk *BOX_SOUND;
+
+static vec4 BOX_SPAWN_REGIONS[] = {
 	{23, 173, 210, 38},
 	{23, 125, 210, 35},
 	{23, 77, 210, 35},
@@ -131,6 +140,7 @@ static void on_fire_trigger(u32 self_id, u32 trigger_id, Hit hit) {
 }
 
 static void on_player_collide(u32 self_id, u32 other_id, Hit hit) {
+	audio_sound_play(PLAYER_DEATH_SOUND);
 	reset();
 }
 
@@ -139,6 +149,7 @@ static void kill_enemy(u32 id) {
 	enemy->time_to_live = 1;
 	enemy->layer_mask = 5;
 	enemy->velocity[1] = 100;
+	audio_sound_play(ENEMY_DEATH_SOUND);
 }
 
 static void on_bullet_collide(u32 self_id, u32 other_id, Hit hit) {
@@ -147,10 +158,12 @@ static void on_bullet_collide(u32 self_id, u32 other_id, Hit hit) {
 	--enemy->health;
 	if (enemy->health <= 0)
 		kill_enemy(other_id);
+	audio_sound_play(HURT_SOUND);
 }
 
 static void on_bullet_collide_static(u32 self_id, u32 static_body_id, Hit hit) {
 	entity_destroy(self_id);
+	audio_sound_play(BULLET_HIT_WALL_SOUND);
 }
 
 static void on_bullet_large_collide(u32 self_id, u32 other_id, Hit hit) {
@@ -159,6 +172,7 @@ static void on_bullet_large_collide(u32 self_id, u32 other_id, Hit hit) {
 	enemy->health -= 2;
 	if (enemy->health <= 0)
 		kill_enemy(other_id);
+	audio_sound_play(HURT_SOUND);
 }
 
 static void rocket_damage(f32 pct) {
@@ -180,6 +194,7 @@ static void on_rocket_collide(u32 self_id, u32 other_id, Hit hit) {
 	context.rocket_explosion_timer = EXPLOSION_TIME;
 	render_screen_shake_add(EXPLOSION_TIME, 1.5f);
 	context.rocket_id = 0;
+	audio_sound_play(EXPLOSION_SOUND);
 }
 
 static void on_enemy_collide_static(u32 self_id, u32 static_body_id, Hit hit) {
@@ -259,13 +274,14 @@ static void on_box_collide(u32 self_id, u32 other_id, Hit hit) {
 		sprintf(context.score_string, "%d", context.score);
 
 		spawn_box();
+		audio_sound_play(BOX_SOUND);
 	}
 }
 
 static void spawn_box() {
-	Spawn_Region region = BOX_SPAWN_REGIONS[rand() % SPAWN_REGION_COUNT];
-	f32 x = frandr(region.x, region.x + region.w);
-	f32 y = frandr(region.y, region.y + region.h);
+	f32 *region = BOX_SPAWN_REGIONS[rand() % SPAWN_REGION_COUNT];
+	f32 x = frandr(region[0], region[0] + region[2]);
+	f32 y = frandr(region[1], region[1] + region[3]);
 	u32 id = entity_create(BOX_TEXTURE, x, y, 4, 4, 8, 8, -4, -4, CL_BOX);
 	Entity *entity = &entity_context.entity_array[id];
 	entity->on_collide = on_box_collide;
@@ -283,6 +299,8 @@ static void reset() {
 	spawn_box();
 	context.score = 0;
 	sprintf(context.score_string, "%d", context.score);
+	audio_music_play(STAGE_1_THEME);
+	Mix_VolumeMusic(MIX_MAX_VOLUME/2);
 }
 
 static void handle_input() {
@@ -329,6 +347,7 @@ static void handle_input() {
 			player->is_grounded = 0;
 			context.jump_key_was_pressed = 1;
 			vertical_velocity = PLAYER_JUMP_VELOCITY;
+			audio_sound_play(JUMP_SOUND);
 		}
 	}
 
@@ -336,12 +355,14 @@ static void handle_input() {
 		if (context.shoot_timer <= 0) {
 			switch (context.weapon_type) {
 			case WT_MACHINE_GUN: {
+				audio_sound_play(MACHINE_GUN_SOUND);
 				context.shoot_timer = 0.05f;
 				spawn_projectile(PT_BULLET, player->aabb.position[0], player->aabb.position[1], 400, frandr(-15, 15), 9, on_bullet_collide, on_bullet_collide_static);
 				context.weapon_kick = 100;
 				render_screen_shake_add(0.05f, 0.15f);
 			} break;
 			case WT_SHOTGUN: {
+				audio_sound_play(SHOTGUN_SOUND);
 				context.shoot_timer = 0.75f;
 				render_screen_shake_add(0.1f, 0.75f);
 				for (u32 i = 0; i < 15; ++i) {
@@ -351,15 +372,18 @@ static void handle_input() {
 				}
 			} break;
 			case WT_ROCKET_LAUNCHER: {
+				audio_sound_play(ROCKET_LAUNCHED_SOUND);
 				context.shoot_timer = 1.25f;
 				spawn_projectile(PT_ROCKET, player->aabb.position[0], player->aabb.position[1], 200, 0, 9, on_rocket_collide, on_rocket_collide);
 			} break;
 			case WT_PISTOL: {
+				audio_sound_play(SHOOT_SOUND);
 				context.shoot_timer = 0.25f;
 				spawn_projectile(PT_BULLET, player->aabb.position[0], player->aabb.position[1], 300, 0, 9, on_bullet_collide, on_bullet_collide_static);
 				render_screen_shake_add(0.05f, 0.03f);
 			} break;
 			case WT_REVOLVER: {
+				audio_sound_play(REVOLVER_SOUND);
 				context.shoot_timer = 0.55f;
 				spawn_projectile(PT_BULLET_LARGE, player->aabb.position[0], player->aabb.position[1], 300, 0, 9, on_bullet_large_collide, on_bullet_collide_static);
 				render_screen_shake_add(0.1f, 0.75f);
@@ -385,6 +409,7 @@ int main(void) {
 	render_setup(&render_context);
 	physics_setup(&physics_context);
 	input_setup(&input_context);
+	audio_setup();
 
 	// Set up collision layer matrix.
 	physics_context.mask_array[0] = 10;
@@ -410,6 +435,23 @@ int main(void) {
 	ENEMY_LARGE_TEXTURE = render_texture_create("./assets/enemy_large.png");
 	ENEMY_SMALL_ANGRY_TEXTURE = render_texture_create("./assets/enemy_small_angry.png");
 	ENEMY_LARGE_ANGRY_TEXTURE = render_texture_create("./assets/enemy_large_angry.png");
+
+	// Setup sounds.
+	audio_sound_load(&JUMP_SOUND, "./assets/jump.wav");
+	audio_sound_load(&SHOOT_SOUND, "./assets/shoot1.wav");
+	audio_sound_load(&EXPLOSION_SOUND, "./assets/explosion.wav");
+	audio_sound_load(&ENEMY_DEATH_SOUND, "./assets/enemy_death.wav");
+	audio_sound_load(&REVOLVER_SOUND, "./assets/revolver.wav");
+	audio_sound_load(&SHOTGUN_SOUND, "./assets/shotgun.wav");
+	audio_sound_load(&MACHINE_GUN_SOUND, "./assets/machine_gun.wav");
+	audio_sound_load(&ROCKET_LAUNCHED_SOUND, "./assets/rocket_launched.wav");
+	audio_sound_load(&HURT_SOUND, "./assets/hurt.wav");
+	audio_sound_load(&PLAYER_DEATH_SOUND, "./assets/player_death.wav");
+	audio_sound_load(&BULLET_HIT_WALL_SOUND, "./assets/bullet_hit_wall.wav");
+	audio_sound_load(&BOX_SOUND, "./assets/box.wav");
+
+	audio_music_load(&TITLE_THEME, "assets/title_theme.wav");
+	audio_music_load(&STAGE_1_THEME, "assets/stage_1_theme.mp3");
 
 	// Setup player.
 	u32 player_id = entity_create(PLAYER_TEXTURE, PLAYER_SPAWN_X, PLAYER_SPAWN_Y, 4, 4, 32, 10, -16, -3.5f, CL_PLAYER);
@@ -448,7 +490,6 @@ int main(void) {
 	trigger->on_trigger = on_fire_trigger;
 
 	reset();
-	SDL_GL_SetSwapInterval(1);
 
 	while (!context.should_quit) {
 		context.time_now = (float)SDL_GetTicks();
