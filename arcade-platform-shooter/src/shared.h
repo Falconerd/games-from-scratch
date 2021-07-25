@@ -34,7 +34,7 @@
 
 #define DEBUG 0
 
-#define PI 3.14159265f
+#define PI 3.14159265
 
 #define GAME_TITLE "Mega Box Crate"
 
@@ -45,7 +45,7 @@
 #define GRAVITY -20
 #define TERMINAL_VELOCITY -200
 
-#define MAX_ENTITIES 256
+#define MAX_ENTITIES 2000
 #define MAX_STATIC_BODIES 20
 #define MAX_TRIGGERS 10
 
@@ -133,15 +133,14 @@ struct entity {
 	vec2 velocity;
 	vec2 desired_velocity;
 	vec2 acceleration;
+	f32 rotation;
+
 	u32 texture;
 	vec2 sprite_size;
 	vec2 sprite_offset;
-
 	vec4 sprite_color;
 	vec4 desired_sprite_color;
 	vec4 sprite_color_delta;
-
-	f32 rotation;
 
 	On_Collide_Function on_collide;
 	On_Collide_Static_Function on_collide_static;
@@ -156,6 +155,7 @@ struct entity {
 
 struct entity_context {
 	Entity *entity_array;
+	u32 entity_array_count;
 };
 
 void entity_setup(Entity_Context *entity_context);
@@ -191,7 +191,7 @@ void render_setup(Render_Context *render_context);
 void render_quad(f32 x, f32 y, f32 width, f32 height, vec4 color);
 void render_circle(f32 x, f32 y, f32 radius, vec4 color);
 void render_text(const char *text, f32 x, f32 y, vec4 color, u8 is_centered);
-void render_sprite(u32 texture, vec3 position, vec2 size, f32 rotation, vec4 color, u8 is_flipped);
+void render_sprite(u32 texture, vec3 position, vec2 size, f32 tex_coords[8], f32 rotation, vec4 color, u8 is_flipped);
 void render_point(vec2 position, vec4 color);
 void render_aabb(AABB aabb, vec4 color);
 void render_segment(vec2 start, vec2 end, vec4 color);

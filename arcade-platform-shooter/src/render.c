@@ -75,7 +75,6 @@ void render_setup(Render_Context *render_context) {
 	stbi_set_flip_vertically_on_load(1);
 
 	// Setup quad rendering.
-	//      Position         Tex coords
 	f32 quad_vertices[] = {
 		 0.5f,  0.5f, 0, 1.0f, 1.0f,
 		 0.5f, -0.5f, 0, 1.0f, 0.0f,
@@ -432,7 +431,28 @@ void render_ray(vec2 start, vec2 direction, f32 length, vec4 color, u8 arrow) {
 	}
 }
 
-void render_sprite(u32 texture, vec3 position, vec2 size, f32 rotation, vec4 color, u8 is_flipped) {
+void render_sprite(u32 texture, vec3 position, vec2 size, f32 tex_coords[8], f32 rotation, vec4 color, u8 is_flipped) {
+	f32 vertices[4][5] = {
+		{ 0.5f,  0.5f, 0, 1.0f, 1.0f},
+		{ 0.5f, -0.5f, 0, 1.0f, 0.0f},
+		{-0.5f, -0.5f, 0, 0.0f, 0.0f},
+		{-0.5f,  0.5f, 0, 0.0f, 1.0f}
+	};
+
+	if (tex_coords) {
+		vertices[0][3] = tex_coords[0];
+		vertices[0][4] = tex_coords[1];
+		vertices[1][3] = tex_coords[2];
+		vertices[1][4] = tex_coords[3];
+		vertices[2][3] = tex_coords[4];
+		vertices[2][4] = tex_coords[5];
+		vertices[3][3] = tex_coords[6];
+		vertices[3][4] = tex_coords[7];
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, context->quad_vbo);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof vertices, vertices);
+
 	m4 model;
 	mat4x4_identity(model);
 

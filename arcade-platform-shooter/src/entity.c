@@ -37,9 +37,12 @@ u32 entity_create(u32 texture, f32 x, f32 y, f32 collider_half_width, f32 collid
 	entity->layer_mask = layer_mask;
 	entity->is_in_use = 1;
 
+	++context->entity_array_count;
+
 	return index;
 }
 
 void entity_destroy(u32 index) {
 	context->entity_array[index].is_in_use = 0;
+	--context->entity_array_count;
 }

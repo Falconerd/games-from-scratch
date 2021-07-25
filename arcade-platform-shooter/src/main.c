@@ -32,6 +32,11 @@ typedef struct game_context {
 	f32 time_now;
 	f32 time_last_frame;
 	f32 delta_time;
+	u32 frame_count;
+	u32 frame_rate;
+	// Used specifically for FPS calculation.
+	// Not the same as time_last_frame.
+	f32 previous_time;
 
 	f32 spawn_timer;
 
@@ -140,8 +145,8 @@ static void on_fire_trigger(u32 self_id, u32 trigger_id, Hit hit) {
 }
 
 static void on_player_collide(u32 self_id, u32 other_id, Hit hit) {
-	audio_sound_play(PLAYER_DEATH_SOUND);
-	reset();
+	// audio_sound_play(PLAYER_DEATH_SOUND);
+	// reset();
 }
 
 static void kill_enemy(u32 id) {
@@ -270,6 +275,8 @@ static void on_box_collide(u32 self_id, u32 other_id, Hit hit) {
 		case WT_COUNT: break;
 		}
 
+		player->texture = PLAYER_TEXTURE;
+
 		++context.score;
 		sprintf(context.score_string, "%d", context.score);
 
@@ -304,101 +311,12 @@ static void reset() {
 }
 
 static void handle_input() {
-	SDL_Event event;
-	while (SDL_PollEvent(&event)) {
-		switch (event.type) {
-		case SDL_QUIT:
-			exit(0);
-		default:
-			break;
-		}
-	}
+}
 
-	Entity *player = &entity_context.entity_array[0];
+void update() {
+}
 
-	f32 horizontal_velocity = 0;
-	f32 vertical_velocity = player->velocity[1];
-
-	context.weapon_kick -= 1000 * context.delta_time;
-
-	const u8 *keyboard_state = SDL_GetKeyboardState(NULL);
-
-	if (keyboard_state[SDL_SCANCODE_ESCAPE]) {
-		context.should_quit = 1;
-	}
-
-	if (keyboard_state[input_context.right]) {
-		horizontal_velocity += PLAYER_MOVEMENT_SPEED;
-		player->is_flipped = 0;
-	}
-
-	if (keyboard_state[input_context.left]) {
-		horizontal_velocity -= PLAYER_MOVEMENT_SPEED;
-		player->is_flipped = 1;
-	}
-
-	if (!keyboard_state[input_context.jump] && context.jump_key_was_pressed) {
-		vertical_velocity *= 0.5f;
-		context.jump_key_was_pressed = 0;
-	}
-
-	if (keyboard_state[input_context.jump]) {
-		if (player->is_grounded) {
-			player->is_grounded = 0;
-			context.jump_key_was_pressed = 1;
-			vertical_velocity = PLAYER_JUMP_VELOCITY;
-			audio_sound_play(JUMP_SOUND);
-		}
-	}
-
-	if (keyboard_state[SDL_SCANCODE_E]) {
-		if (context.shoot_timer <= 0) {
-			switch (context.weapon_type) {
-			case WT_MACHINE_GUN: {
-				audio_sound_play(MACHINE_GUN_SOUND);
-				context.shoot_timer = 0.05f;
-				spawn_projectile(PT_BULLET, player->aabb.position[0], player->aabb.position[1], 400, frandr(-15, 15), 9, on_bullet_collide, on_bullet_collide_static);
-				context.weapon_kick = 100;
-				render_screen_shake_add(0.05f, 0.15f);
-			} break;
-			case WT_SHOTGUN: {
-				audio_sound_play(SHOTGUN_SOUND);
-				context.shoot_timer = 0.75f;
-				render_screen_shake_add(0.1f, 0.75f);
-				for (u32 i = 0; i < 15; ++i) {
-					f32 vy = frandr(-35, 35);
-					f32 vx = frandr(150, 210);
-					spawn_projectile(PT_BULLET, player->aabb.position[0], player->aabb.position[1], vx, vy, 0.25f, on_bullet_collide, on_bullet_collide_static);
-				}
-			} break;
-			case WT_ROCKET_LAUNCHER: {
-				audio_sound_play(ROCKET_LAUNCHED_SOUND);
-				context.shoot_timer = 1.25f;
-				spawn_projectile(PT_ROCKET, player->aabb.position[0], player->aabb.position[1], 200, 0, 9, on_rocket_collide, on_rocket_collide);
-			} break;
-			case WT_PISTOL: {
-				audio_sound_play(SHOOT_SOUND);
-				context.shoot_timer = 0.25f;
-				spawn_projectile(PT_BULLET, player->aabb.position[0], player->aabb.position[1], 300, 0, 9, on_bullet_collide, on_bullet_collide_static);
-				render_screen_shake_add(0.05f, 0.03f);
-			} break;
-			case WT_REVOLVER: {
-				audio_sound_play(REVOLVER_SOUND);
-				context.shoot_timer = 0.55f;
-				spawn_projectile(PT_BULLET_LARGE, player->aabb.position[0], player->aabb.position[1], 300, 0, 9, on_bullet_large_collide, on_bullet_collide_static);
-				render_screen_shake_add(0.1f, 0.75f);
-			} break;
-			case WT_COUNT: break;
-			}
-		}
-	}
-
-	if (context.weapon_kick >= 0) {
-		horizontal_velocity = player->is_flipped ? context.weapon_kick : -context.weapon_kick;
-	}
-
-	player->velocity[0] = horizontal_velocity;
-	player->velocity[1] = vertical_velocity;
+void render() {
 }
 
 int main(void) {
@@ -454,7 +372,7 @@ int main(void) {
 	audio_music_load(&STAGE_1_THEME, "assets/stage_1_theme.mp3");
 
 	// Setup player.
-	u32 player_id = entity_create(PLAYER_TEXTURE, PLAYER_SPAWN_X, PLAYER_SPAWN_Y, 4, 4, 32, 10, -16, -3.5f, CL_PLAYER);
+	u32 player_id = entity_create(PLAYER_TEXTURE, PLAYER_SPAWN_X, PLAYER_SPAWN_Y, 4, 4, 16, 10, -8, -3.5f, CL_PLAYER);
 	Entity *player = &entity_context.entity_array[player_id];
 	player->on_collide = on_player_collide;
 
@@ -491,42 +409,154 @@ int main(void) {
 
 	reset();
 
+	context.previous_time = (f32)SDL_GetTicks();
+
 	while (!context.should_quit) {
-		context.time_now = (float)SDL_GetTicks();
+		context.time_now = (f32)SDL_GetTicks();
 		context.delta_time = (context.time_now - context.time_last_frame) / 1000;
 		context.time_last_frame = context.time_now;
 
-		handle_input();
+		context.frame_count++;
+		if (context.time_now - context.previous_time >= 1000.0f) {
+			context.frame_rate = context.frame_count;
+			context.frame_count = 0;
+			context.previous_time = context.time_now;
+		}
 
-		// Update game state.
-		{
-			context.shoot_timer -= context.delta_time;
-
-			// Spawn enemy.
-			context.spawn_timer -= context.delta_time;
-			if (context.spawn_timer < 0) {
-				context.spawn_timer = frandr(2, 4);
-				u8 is_flipped = (rand() % 100) > 50;
-				u8 health = 3;
-				u32 enemy_id = 0;
-				f32 speed = 60;
-
-				if (rand() % 100 > 18) {
-					enemy_id = entity_create(ENEMY_SMALL_TEXTURE, 128, 224, 3, 3, 10, 7, -5, -3, CL_ENEMY);
-				} else {
-					enemy_id = entity_create(ENEMY_LARGE_TEXTURE, 128, 224, 7, 7, 14, 14, -7, -7, CL_ENEMY);
-					health = 7;
-					speed = 40;
-				}
-
-				Entity *enemy = &entity_context.entity_array[enemy_id];
-				enemy->health = health;
-				enemy->is_flipped = is_flipped;
-				enemy->velocity[0] = is_flipped ? -speed : speed;
-				enemy->on_collide_static = on_enemy_collide_static;
-				enemy->time_to_live = 0;
+		/////////////////////////////////////////////////////////////////////
+		// Handle input.
+		/////////////////////////////////////////////////////////////////////
+		SDL_Event event;
+		while (SDL_PollEvent(&event)) {
+			switch (event.type) {
+			case SDL_QUIT:
+				exit(0);
+			default:
+				break;
 			}
 		}
+
+		Entity *player = &entity_context.entity_array[0];
+
+		f32 horizontal_velocity = 0;
+		f32 vertical_velocity = player->velocity[1];
+
+		context.weapon_kick -= 1000 * context.delta_time;
+
+		const u8 *keyboard_state = SDL_GetKeyboardState(NULL);
+
+		if (keyboard_state[SDL_SCANCODE_ESCAPE]) {
+			context.should_quit = 1;
+		}
+
+		if (keyboard_state[input_context.right]) {
+			horizontal_velocity += PLAYER_MOVEMENT_SPEED;
+			player->is_flipped = 0;
+		}
+
+		if (keyboard_state[input_context.left]) {
+			horizontal_velocity -= PLAYER_MOVEMENT_SPEED;
+			player->is_flipped = 1;
+		}
+
+		if (!keyboard_state[input_context.jump] && context.jump_key_was_pressed) {
+			vertical_velocity *= 0.5f;
+			context.jump_key_was_pressed = 0;
+		}
+
+		if (keyboard_state[input_context.jump]) {
+			if (player->is_grounded) {
+				player->is_grounded = 0;
+				context.jump_key_was_pressed = 1;
+				vertical_velocity = PLAYER_JUMP_VELOCITY;
+				audio_sound_play(JUMP_SOUND);
+			}
+		}
+
+		if (keyboard_state[SDL_SCANCODE_E]) {
+			if (context.shoot_timer <= 0) {
+				switch (context.weapon_type) {
+				case WT_MACHINE_GUN: {
+					audio_sound_play(MACHINE_GUN_SOUND);
+					context.shoot_timer = 0.05f;
+					spawn_projectile(PT_BULLET, player->aabb.position[0], player->aabb.position[1], 400, frandr(-15, 15), 9, on_bullet_collide, on_bullet_collide_static);
+					context.weapon_kick = 100;
+					render_screen_shake_add(0.05f, 0.15f);
+				} break;
+				case WT_SHOTGUN: {
+					audio_sound_play(SHOTGUN_SOUND);
+					context.shoot_timer = 0.75f;
+					render_screen_shake_add(0.1f, 0.75f);
+					for (u32 i = 0; i < 15; ++i) {
+						f32 vy = frandr(-35, 35);
+						f32 vx = frandr(150, 210);
+						spawn_projectile(PT_BULLET, player->aabb.position[0], player->aabb.position[1], vx, vy, 0.25f, on_bullet_collide, on_bullet_collide_static);
+					}
+				} break;
+				case WT_ROCKET_LAUNCHER: {
+					audio_sound_play(ROCKET_LAUNCHED_SOUND);
+					context.shoot_timer = 1.25f;
+					spawn_projectile(PT_ROCKET, player->aabb.position[0], player->aabb.position[1], 200, 0, 9, on_rocket_collide, on_rocket_collide);
+				} break;
+				case WT_PISTOL: {
+					audio_sound_play(SHOOT_SOUND);
+					context.shoot_timer = 0.25f;
+					spawn_projectile(PT_BULLET, player->aabb.position[0], player->aabb.position[1], 300, 0, 9, on_bullet_collide, on_bullet_collide_static);
+					render_screen_shake_add(0.05f, 0.03f);
+				} break;
+				case WT_REVOLVER: {
+					audio_sound_play(REVOLVER_SOUND);
+					context.shoot_timer = 0.55f;
+					spawn_projectile(PT_BULLET_LARGE, player->aabb.position[0], player->aabb.position[1], 300, 0, 9, on_bullet_large_collide, on_bullet_collide_static);
+					render_screen_shake_add(0.1f, 0.75f);
+				} break;
+				case WT_COUNT: break;
+				}
+			}
+		}
+
+		if (context.weapon_kick >= 0) {
+			horizontal_velocity = player->is_flipped ? context.weapon_kick : -context.weapon_kick;
+		}
+
+		player->velocity[0] = horizontal_velocity;
+		player->velocity[1] = vertical_velocity;
+
+		/////////////////////////////////////////////////////////////////////
+		// Update state.
+		/////////////////////////////////////////////////////////////////////
+
+		context.shoot_timer -= context.delta_time;
+
+		// Spawn enemy.
+		// context.spawn_timer -= context.delta_time;
+		// if (context.spawn_timer < 0) {
+		if (entity_context.entity_array_count < 1500) {
+			context.spawn_timer = frandr(2, 4);
+			u8 is_flipped = (rand() % 100) > 50;
+			u8 health = 3;
+			u32 enemy_id = 0;
+			f32 speed = 60;
+
+			if (rand() % 100 > 18) {
+				enemy_id = entity_create(ENEMY_SMALL_TEXTURE, 128, 224, 3, 3, 10, 7, -5, -3, CL_ENEMY);
+			} else {
+				enemy_id = entity_create(ENEMY_LARGE_TEXTURE, 128, 224, 7, 7, 14, 14, -7, -7, CL_ENEMY);
+				health = 7;
+				speed = 40;
+			}
+
+			Entity *enemy = &entity_context.entity_array[enemy_id];
+			enemy->health = health;
+			enemy->is_flipped = is_flipped;
+			enemy->velocity[0] = is_flipped ? -speed : speed;
+			enemy->on_collide_static = on_enemy_collide_static;
+			enemy->time_to_live = 0;
+		}
+
+		/////////////////////////////////////////////////////////////////////
+		// Render.
+		/////////////////////////////////////////////////////////////////////
 
 		// Clear screen, etc.
 		glClearColor(0.0, 0.0, 0.0, 1);
@@ -536,7 +566,7 @@ int main(void) {
 
 		// Render terrain.
 		// It's rendered before physics is updated as physics may have some debug rendering.
-		render_sprite(TERRAIN_TEXTURE, (vec3){0, 0, 0}, (vec2){256, 224}, 0, (vec4){1, 1, 1, 1}, 0);
+		render_sprite(TERRAIN_TEXTURE, (vec3){0, 0, 0}, (vec2){256, 224}, NULL, 0, (vec4){1, 1, 1, 1}, 0);
 
 		// Update physics.
 		physics_tick(context.delta_time, entity_context.entity_array);
@@ -599,7 +629,17 @@ int main(void) {
 				}
 				vec3 position = {entity->aabb.position[0] + entity->sprite_offset[0],
 						 entity->aabb.position[1] + entity->sprite_offset[1], 0};
-				render_sprite(entity->texture, position, entity->sprite_size, entity->rotation, entity->sprite_color, entity->is_flipped);
+				f32 uvs[] = {
+					1.0f, 1.0f,
+					1.0f, 0.0f,
+					0.5f, 0.0f,
+					0.5f, 1.0f
+		// { 0.5f,  0.5f, 0, 1.0f, 1.0f},
+		// { 0.5f, -0.5f, 0, 1.0f, 0.0f},
+		// {-0.5f, -0.5f, 0, 0.0f, 0.0f},
+		// {-0.5f,  0.5f, 0, 0.0f, 1.0f}
+				};
+				render_sprite(entity->texture, position, entity->sprite_size, uvs, entity->rotation, entity->sprite_color, entity->is_flipped);
 
 #if DEBUG
 				// Render entity colliders.
@@ -632,20 +672,21 @@ int main(void) {
 		}
 
 		// Render spawn regions.
-		// for (u32 i = 0; i < SPAWN_REGION_COUNT; ++i) {
-		// 	Spawn_Region spawn_region = BOX_SPAWN_REGIONS[i];
-		// 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-		// 	render_quad(spawn_region.x, spawn_region.y, spawn_region.w, spawn_region.h, (vec4){1, 1, 0.5f, 1});
-		// 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-		// }
+		for (u32 i = 0; i < SPAWN_REGION_COUNT; ++i) {
+			f32 *spawn_region = BOX_SPAWN_REGIONS[i];
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+			render_quad(spawn_region[0], spawn_region[1], spawn_region[2], spawn_region[3], (vec4){1, 1, 0.5, 0.1});
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		}
 #endif
-
-		// glUseProgram(render_context.text_shader);
-		// render_text(130, 130, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", (vec4){1, 1, 1, 1});
 
 		glUseProgram(render_context.text_shader);
 		render_text(context.score_string, 128, 194, (vec4){1, 1, 1, 1}, 1);
 
+		char fps[6] = {0};
+		sprintf(fps, "%u", context.frame_rate);
+		
+		render_text(fps, 20, 20, (vec4){1, 1, 1, 1}, 1);
 		SDL_GL_SwapWindow(render_context.window);
 	}
 }
