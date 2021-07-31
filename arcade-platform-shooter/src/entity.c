@@ -1,17 +1,17 @@
 #include "shared.h"
 
-static Entity_Context *context;
+Entity_State entity_state = {0};
+static Entity_State *state = &entity_state;
 
-void entity_setup(Entity_Context *physics_context) {
-	context = physics_context;
-	context->entity_array = calloc(MAX_ENTITIES, sizeof(Entity));
+void entity_setup() {
+	state->entity_array = calloc(MAX_ENTITIES, sizeof(Entity));
 }
 
-u32 entity_create(u32 texture, f32 x, f32 y, f32 collider_half_width, f32 collider_half_height,
+u32 entity_create(Texture texture, f32 x, f32 y, f32 collider_half_width, f32 collider_half_height,
                   f32 sprite_width, f32 sprite_height, f32 sprite_offset_x, f32 sprite_offset_y, u32 layer_mask) {
 	u32 index = MAX_ENTITIES;
 	for (u32 i = 0; i < MAX_ENTITIES; ++i) {
-		if (!context->entity_array[i].is_in_use) {
+		if (!state->entity_array[i].is_in_use) {
 			index = i;
 			break;
 		}
@@ -21,7 +21,7 @@ u32 entity_create(u32 texture, f32 x, f32 y, f32 collider_half_width, f32 collid
 		error_and_exit(EXIT_FAILURE, "No space for new entities");
 	}
 
-	Entity *entity = &context->entity_array[index];
+	Entity *entity = &state->entity_array[index];
 	memset(entity, 0, sizeof(*entity));
 
 	entity->texture = texture;
@@ -37,12 +37,12 @@ u32 entity_create(u32 texture, f32 x, f32 y, f32 collider_half_width, f32 collid
 	entity->layer_mask = layer_mask;
 	entity->is_in_use = 1;
 
-	++context->entity_array_count;
+	++state->entity_array_count;
 
 	return index;
 }
 
 void entity_destroy(u32 index) {
-	context->entity_array[index].is_in_use = 0;
-	--context->entity_array_count;
+	state->entity_array[index].is_in_use = 0;
+	--state->entity_array_count;
 }

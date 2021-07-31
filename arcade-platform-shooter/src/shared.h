@@ -45,9 +45,12 @@
 #define GRAVITY -20
 #define TERMINAL_VELOCITY -200
 
-#define MAX_ENTITIES 2000
+#define MAX_ENTITIES 256
 #define MAX_STATIC_BODIES 20
 #define MAX_TRIGGERS 10
+#define MAX_SPRITE_SHEETS 10
+#define MAX_SPRITE_ANIMATIONS 10
+#define MAX_SPRITE_ANIMATION_FRAMES 8
 
 ////////////////////////////////////////////////////////////////////////
 // Shared functions.
@@ -69,16 +72,65 @@ typedef struct hit Hit;
 typedef struct aabb AABB;
 typedef struct static_body Static_Body;
 typedef struct trigger Trigger;
-typedef struct physics_context Physics_Context;
+typedef struct physics_state Physics_State;
 
 typedef struct entity Entity;
-typedef struct entity_context Entity_Context;
+typedef struct entity_state Entity_State;
 
-typedef struct render_context Render_Context;
+typedef struct texture Texture;
+typedef struct render_state Render_State;
+
+typedef struct sprite_sheet Sprite_Sheet;
 
 typedef void (*On_Collide_Function)(u32 self_id, u32 other_id, Hit hit);
 typedef void (*On_Collide_Static_Function)(u32 self_id, u32 static_body_id, Hit hit);
 typedef void (*On_Trigger_Function)(u32 self_id, u32 trigger_id, Hit hit);
+
+////////////////////////////////////////////////////////////////////////
+// Render.
+////////////////////////////////////////////////////////////////////////
+
+struct texture {
+	u32 id;
+	i32 width;
+	i32 height;
+	i32 channel_count;
+};
+
+struct render_state {
+	SDL_Window *window;
+	SDL_Renderer *renderer;
+	m4 projection;
+	u32 color_texture;
+	u32 shader;
+	u32 quad_vao;
+	u32 quad_vbo;
+	u32 quad_ebo;
+	u32 line_vao;
+	u32 line_vbo;
+	u32 text_vao;
+	u32 text_vbo;
+	u32 text_shader;
+	u32 text_texture;
+	u32 circle_shader;
+
+	f32 screen_shake_timer;
+	f32 screen_shake_magnitude;
+};
+
+void render_setup();
+void render_quad(f32 x, f32 y, f32 width, f32 height, vec4 color);
+void render_circle(f32 x, f32 y, f32 radius, vec4 color);
+void render_text(const char *text, f32 x, f32 y, vec4 color, u8 is_centered);
+void render_sprite(Texture texture, vec2 size, vec3 position, f32 tex_coords[8], f32 rotation, vec4 color, u8 is_flipped);
+void render_point(vec2 position, vec4 color);
+void render_aabb(AABB aabb, vec4 color);
+void render_segment(vec2 start, vec2 end, vec4 color);
+void render_ray(vec2 start, vec2 direction, f32 length, vec4 color, u8 arrow);
+Texture render_texture_create(const char *path);
+void render_screen_shake_add(f32 duration, f32 magnitude);
+void render_screen_shake(f32 delta_time);
+void render_sprite_sheet_frame(Sprite_Sheet sprite_sheet, u8 row, u8 column, vec3 position, f32 rotation, vec4 color, u8 is_flipped);
 
 ////////////////////////////////////////////////////////////////////////
 // Physics.
@@ -107,7 +159,7 @@ struct trigger {
 	On_Trigger_Function on_trigger;
 };
 
-struct physics_context {
+struct physics_state {
 	u32 static_body_array_count;
 	u32 static_body_array_max;
 	Static_Body *static_body_array;
@@ -117,7 +169,7 @@ struct physics_context {
 	u8 mask_array[5];
 };
 
-void physics_setup(Physics_Context *physics_context);
+void physics_setup();
 void physics_tick(f32 delta_time, Entity *entity_array);
 Static_Body *physics_static_body_create(f32 x, f32 y, f32 half_width, f32 half_height, u8 layer_mask);
 Trigger *physics_trigger_create(f32 x, f32 y, f32 half_width, f32 half_height);
@@ -135,7 +187,7 @@ struct entity {
 	vec2 acceleration;
 	f32 rotation;
 
-	u32 texture;
+	Texture texture;
 	vec2 sprite_size;
 	vec2 sprite_offset;
 	vec4 sprite_color;
@@ -153,52 +205,14 @@ struct entity {
 	i8 health;
 };
 
-struct entity_context {
+struct entity_state {
 	Entity *entity_array;
 	u32 entity_array_count;
 };
 
-void entity_setup(Entity_Context *entity_context);
-u32 entity_create(u32 texture, f32 x, f32 y, f32 collider_half_width, f32 collider_half_height, f32 sprite_width, f32 sprite_height, f32 sprite_offset_x, f32 sprite_offset_y, u32 layer_mask);
+void entity_setup();
+u32 entity_create(Texture texture, f32 x, f32 y, f32 collider_half_width, f32 collider_half_height, f32 sprite_width, f32 sprite_height, f32 sprite_offset_x, f32 sprite_offset_y, u32 layer_mask);
 void entity_destroy(u32 index);
-
-////////////////////////////////////////////////////////////////////////
-// Render.
-////////////////////////////////////////////////////////////////////////
-
-struct render_context {
-	SDL_Window *window;
-	SDL_Renderer *renderer;
-	m4 projection;
-	u32 color_texture;
-	u32 shader;
-	u32 quad_vao;
-	u32 quad_vbo;
-	u32 quad_ebo;
-	u32 line_vao;
-	u32 line_vbo;
-	u32 text_vao;
-	u32 text_vbo;
-	u32 text_shader;
-	u32 text_texture;
-	u32 circle_shader;
-
-	f32 screen_shake_timer;
-	f32 screen_shake_magnitude;
-};
-
-void render_setup(Render_Context *render_context);
-void render_quad(f32 x, f32 y, f32 width, f32 height, vec4 color);
-void render_circle(f32 x, f32 y, f32 radius, vec4 color);
-void render_text(const char *text, f32 x, f32 y, vec4 color, u8 is_centered);
-void render_sprite(u32 texture, vec3 position, vec2 size, f32 tex_coords[8], f32 rotation, vec4 color, u8 is_flipped);
-void render_point(vec2 position, vec4 color);
-void render_aabb(AABB aabb, vec4 color);
-void render_segment(vec2 start, vec2 end, vec4 color);
-void render_ray(vec2 start, vec2 direction, f32 length, vec4 color, u8 arrow);
-u32 render_texture_create(const char *path);
-void render_screen_shake_add(f32 duration, f32 magnitude);
-void render_screen_shake(f32 delta_time);
 
 ////////////////////////////////////////////////////////////////////////
 // Input output.
@@ -211,14 +225,15 @@ int write_buffer_into_file(void *buffer, size_t length, const char *path);
 // User input.
 ////////////////////////////////////////////////////////////////////////
 
-typedef struct input_context {
+typedef struct input_state {
 	u8 left;
 	u8 jump;
 	u8 right;
 	u8 shoot;
-} Input_Context;
+	u8 jump_key_was_pressed;
+} Input_State;
 
-void input_setup(Input_Context *input_context);
+void input_setup();
 
 ////////////////////////////////////////////////////////////////////////
 // Audio.
@@ -229,5 +244,38 @@ void audio_sound_play(Mix_Chunk *sound);
 void audio_music_load(Mix_Music **music, const char *path);
 void audio_music_play(Mix_Music *music);
 void audio_setup();
+
+////////////////////////////////////////////////////////////////////////
+// Animation.
+////////////////////////////////////////////////////////////////////////
+
+typedef struct sprite_animation {
+	u32 sprite_sheet_id;
+	f32 frame_time_array[MAX_SPRITE_ANIMATION_FRAMES];
+	f32 current_frame_time;
+	u8 row_coordinate_array[MAX_SPRITE_ANIMATION_FRAMES];
+	u8 column_coordinate_array[MAX_SPRITE_ANIMATION_FRAMES];
+	u8 length;
+	u8 current_frame;
+	u8 does_loop;
+} Sprite_Animation;
+
+struct sprite_sheet {
+	Texture texture;
+	u8 rows;
+	u8 columns;
+	u8 frame_width;
+	u8 frame_height;
+};
+
+typedef struct animation_state {
+	Sprite_Animation sprite_animation_array[MAX_SPRITE_ANIMATIONS];
+	u32 sprite_animation_array_count;
+	Sprite_Sheet sprite_sheet_array[MAX_SPRITE_SHEETS];
+	u32 sprite_sheet_array_count;
+} Animation_State;
+
+u32 sprite_animation_create(u32 sprite_sheet_id, u8 length, u8 *row_coordinate_array, u8 *column_coordinate_array, f32 *frame_time_array);
+void sprite_animation_tick(f32 delta_time);
 
 #endif

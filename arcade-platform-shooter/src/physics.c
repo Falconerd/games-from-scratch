@@ -1,13 +1,13 @@
 #include "shared.h"
 
-static Physics_Context *context;
+Physics_State physics_state = {0};
+static Physics_State *state = &physics_state;
 static Hit *hit_array;
 static u32 next_hit_index = 0;
 
-void physics_setup(Physics_Context *physics_context) {
-	context = physics_context;
-	context->static_body_array = calloc(MAX_STATIC_BODIES, sizeof(*context->static_body_array));
-	context->trigger_array = calloc(MAX_TRIGGERS, sizeof(*context->trigger_array));
+void physics_setup() {
+	state->static_body_array = calloc(MAX_STATIC_BODIES, sizeof(*state->static_body_array));
+	state->trigger_array = calloc(MAX_TRIGGERS, sizeof(*state->trigger_array));
 	hit_array = calloc(MAX_ENTITIES * MAX_ENTITIES, sizeof(*hit_array));
 }
 
@@ -49,33 +49,33 @@ Hit *aabb_intersect_aabb(AABB self, AABB other) {
 }
 
 Static_Body *physics_static_body_create(f32 x, f32 y, f32 half_width, f32 half_height, u8 layer_mask) {
-	if (context->static_body_array_count == MAX_STATIC_BODIES) {
+	if (state->static_body_array_count == MAX_STATIC_BODIES) {
 		error_and_exit(EXIT_FAILURE, "No static bodies left.\n");
 	}
 
-	u32 index = context->static_body_array_count++;
+	u32 index = state->static_body_array_count++;
 	Static_Body static_body = {{{x, y}, {half_width, half_height}}};
 	static_body.layer_mask = layer_mask;
-	context->static_body_array[index] = static_body;
+	state->static_body_array[index] = static_body;
 
-	return &context->static_body_array[index];
+	return &state->static_body_array[index];
 }
 
 Trigger *physics_trigger_create(f32 x, f32 y, f32 half_width, f32 half_height) {
-	if (context->trigger_array_count == MAX_TRIGGERS) {
+	if (state->trigger_array_count == MAX_TRIGGERS) {
 		error_and_exit(EXIT_FAILURE, "No triggers left.\n");
 	}
 
-	u32 index = context->trigger_array_count++;
+	u32 index = state->trigger_array_count++;
 	Trigger trigger = {{{x, y}, {half_width, half_height}}};
 	trigger.id = index;
-	context->trigger_array[index] = trigger;
+	state->trigger_array[index] = trigger;
 
-	return &context->trigger_array[index];
+	return &state->trigger_array[index];
 }
 
 static u8 can_collide(u8 a_id, u8 b_id) {
-	u8 a = context->mask_array[a_id];
+	u8 a = state->mask_array[a_id];
 	return ((1 << b_id & a) > 0);
 }
 
@@ -87,8 +87,8 @@ void physics_tick(f32 delta_time, Entity *entity_array) {
 
 		// Triggers. Check first because otherwise the velocity is added and
 		// entities can trigger things through static objects.
-		for (u32 j = 0; j < context->trigger_array_count; ++j) {
-			Trigger *trigger = &context->trigger_array[j];
+		for (u32 j = 0; j < state->trigger_array_count; ++j) {
+			Trigger *trigger = &state->trigger_array[j];
 			Hit *hit = aabb_intersect_aabb(entity->aabb, trigger->aabb);
 			if (hit != NULL && trigger->on_trigger != NULL)
 				trigger->on_trigger(i, j, *hit);
@@ -123,8 +123,8 @@ void physics_tick(f32 delta_time, Entity *entity_array) {
 
 		// Static collisions.
 		u32 was_hit = 0;
-		for (u32 j = 0; j < context->static_body_array_count; ++j) {
-			Static_Body *static_body = &context->static_body_array[j];
+		for (u32 j = 0; j < state->static_body_array_count; ++j) {
+			Static_Body *static_body = &state->static_body_array[j];
 			Hit *hit = aabb_intersect_aabb(entity->aabb, static_body->aabb);
 			if (hit != NULL) {
 				if (!can_collide(entity->layer_mask, static_body->layer_mask))

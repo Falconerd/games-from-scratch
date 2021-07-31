@@ -1,7 +1,7 @@
 #include "shared.h"
 
 ////////////////////////////////////////////////////////////////////////
-// Types and context.
+// Types and state.
 ////////////////////////////////////////////////////////////////////////
 
 typedef enum weapon_type {
@@ -28,7 +28,7 @@ typedef enum collision_layer {
 	CL_BOX
 } Collision_Layer;
 
-typedef struct game_context {
+typedef struct game_state {
 	f32 time_now;
 	f32 time_last_frame;
 	f32 delta_time;
@@ -46,24 +46,23 @@ typedef struct game_context {
 	vec2 rocket_explosion_position;
 	f32 rocket_explosion_timer;
 
-	f32 weapon_kick;
-
 	u32 rocket_id;
 	f32 rocket_smoke_timer;
 
-	u8 jump_key_was_pressed;
-	u8 should_quit;
+	f32 weapon_kick;
 
 	u32 score;
-
 	char score_string[10];
-} Game_Context;
 
-static Game_Context context = {0};
-static Entity_Context entity_context = {0};
-static Render_Context render_context = {0};
-static Physics_Context physics_context = {0};
-static Input_Context input_context = {0};
+	u8 should_quit;
+} Game_State;
+
+static Game_State state = {0};
+
+extern Entity_State entity_state;
+extern Render_State render_state;
+extern Physics_State physics_state;
+extern Input_State input_state;
 
 ////////////////////////////////////////////////////////////////////////
 // Constants.
@@ -77,23 +76,33 @@ static const f32 PLAYER_MOVEMENT_SPEED = 100;
 static const f32 EXPLOSION_RADIUS = 45;
 static const f32 EXPLOSION_TIME = 0.25f;
 static const f32 PLAYER_JUMP_VELOCITY = 400;
+static const f32 BOX_SPAWN_REGIONS[] = {
+	23, 173, 210, 38,
+	23, 125, 210, 35,
+	23, 77, 210, 35,
+	140, 36, 83, 28,
+	23, 36, 83, 28
+};
+static const u32 SPAWN_REGION_COUNT = 5;
 
-static u32 TERRAIN_TEXTURE;
-static u32 PLAYER_TEXTURE;
-static u32 PLAYER_SHOTGUN_TEXTURE;
-static u32 PLAYER_MACHINE_GUN_TEXTURE;
-static u32 PLAYER_ROCKET_LAUNCHER_TEXTURE;
-static u32 PLAYER_PISTOL_TEXTURE;
-static u32 PLAYER_REVOLVER_TEXTURE;
-static u32 BULLET_TEXTURE;
-static u32 BULLET_LARGE_TEXTURE;
-static u32 ROCKET_TEXTURE;
-static u32 BOX_TEXTURE;
-static u32 SMOKE_TEXTURE;
-static u32 ENEMY_SMALL_TEXTURE;
-static u32 ENEMY_LARGE_TEXTURE;
-static u32 ENEMY_SMALL_ANGRY_TEXTURE;
-static u32 ENEMY_LARGE_ANGRY_TEXTURE;
+// Technically not constants, but we cannot initialise them here and
+// they never change after initialisation.
+static Texture TERRAIN_TEXTURE;
+static Texture PLAYER_TEXTURE;
+static Texture PLAYER_SHOTGUN_TEXTURE;
+static Texture PLAYER_MACHINE_GUN_TEXTURE;
+static Texture PLAYER_ROCKET_LAUNCHER_TEXTURE;
+static Texture PLAYER_PISTOL_TEXTURE;
+static Texture PLAYER_REVOLVER_TEXTURE;
+static Texture BULLET_TEXTURE;
+static Texture BULLET_LARGE_TEXTURE;
+static Texture ROCKET_TEXTURE;
+static Texture BOX_TEXTURE;
+static Texture SMOKE_TEXTURE;
+static Texture ENEMY_SMALL_TEXTURE;
+static Texture ENEMY_LARGE_TEXTURE;
+static Texture ENEMY_SMALL_ANGRY_TEXTURE;
+static Texture ENEMY_LARGE_ANGRY_TEXTURE;
 
 static Mix_Music *TITLE_THEME;
 static Mix_Music *STAGE_1_THEME;
@@ -111,20 +120,11 @@ static Mix_Chunk *PLAYER_DEATH_SOUND;
 static Mix_Chunk *BULLET_HIT_WALL_SOUND;
 static Mix_Chunk *BOX_SOUND;
 
-static vec4 BOX_SPAWN_REGIONS[] = {
-	{23, 173, 210, 38},
-	{23, 125, 210, 35},
-	{23, 77, 210, 35},
-	{140, 36, 83, 28},
-	{23, 36, 83, 28}
-};
-static u32 SPAWN_REGION_COUNT = 5;
-
 static void reset();
 static void spawn_box();
 
 static void on_fire_trigger(u32 self_id, u32 trigger_id, Hit hit) {
-	Entity *self = &entity_context.entity_array[self_id];
+	Entity *self = &entity_state.entity_array[self_id];
 	// Make sure entities which are falling off the screen don't
 	// trigger this.
 	if (self->time_to_live > 0)
@@ -134,10 +134,10 @@ static void on_fire_trigger(u32 self_id, u32 trigger_id, Hit hit) {
 	} else {
 		self->aabb.position[0] = ENEMY_SPAWN_X;
 		self->aabb.position[1] = ENEMY_SPAWN_Y;
-		if (self->texture == ENEMY_SMALL_TEXTURE) {
+		if (self->texture.id == ENEMY_SMALL_TEXTURE.id) {
 			self->texture = ENEMY_SMALL_ANGRY_TEXTURE;
 			self->velocity[0] *= 1.5f;
-		} else if (self->texture == ENEMY_LARGE_TEXTURE) {
+		} else if (self->texture.id == ENEMY_LARGE_TEXTURE.id) {
 			self->texture = ENEMY_LARGE_ANGRY_TEXTURE;
 			self->velocity[0] *= 1.5f;
 		}
@@ -150,7 +150,7 @@ static void on_player_collide(u32 self_id, u32 other_id, Hit hit) {
 }
 
 static void kill_enemy(u32 id) {
-	Entity *enemy = &entity_context.entity_array[id];
+	Entity *enemy = &entity_state.entity_array[id];
 	enemy->time_to_live = 1;
 	enemy->layer_mask = 5;
 	enemy->velocity[1] = 100;
@@ -159,7 +159,7 @@ static void kill_enemy(u32 id) {
 
 static void on_bullet_collide(u32 self_id, u32 other_id, Hit hit) {
 	entity_destroy(self_id);
-	Entity *enemy = &entity_context.entity_array[other_id];
+	Entity *enemy = &entity_state.entity_array[other_id];
 	--enemy->health;
 	if (enemy->health <= 0)
 		kill_enemy(other_id);
@@ -173,7 +173,7 @@ static void on_bullet_collide_static(u32 self_id, u32 static_body_id, Hit hit) {
 
 static void on_bullet_large_collide(u32 self_id, u32 other_id, Hit hit) {
 	entity_destroy(self_id);
-	Entity *enemy = &entity_context.entity_array[other_id];
+	Entity *enemy = &entity_state.entity_array[other_id];
 	enemy->health -= 2;
 	if (enemy->health <= 0)
 		kill_enemy(other_id);
@@ -182,9 +182,9 @@ static void on_bullet_large_collide(u32 self_id, u32 other_id, Hit hit) {
 
 static void rocket_damage(f32 pct) {
 	for (u32 i = 1; i < MAX_ENTITIES; ++i) {
-		Entity *entity = &entity_context.entity_array[i];
+		Entity *entity = &entity_state.entity_array[i];
 		if ((entity->layer_mask & CL_ENEMY) > 0 && !entity->is_kinematic) {
-			f32 distance = vec2_sqr_dist(entity->aabb.position, context.rocket_explosion_position);
+			f32 distance = vec2_sqr_dist(entity->aabb.position, state.rocket_explosion_position);
 			if (distance <= EXPLOSION_RADIUS * EXPLOSION_RADIUS * pct) {
 				kill_enemy(i);
 			}
@@ -194,17 +194,17 @@ static void rocket_damage(f32 pct) {
 
 static void on_rocket_collide(u32 self_id, u32 other_id, Hit hit) {
 	entity_destroy(self_id);
-	context.rocket_explosion_position[0] = hit.position[0];
-	context.rocket_explosion_position[1] = hit.position[1];
-	context.rocket_explosion_timer = EXPLOSION_TIME;
+	state.rocket_explosion_position[0] = hit.position[0];
+	state.rocket_explosion_position[1] = hit.position[1];
+	state.rocket_explosion_timer = EXPLOSION_TIME;
 	render_screen_shake_add(EXPLOSION_TIME, 1.5f);
-	context.rocket_id = 0;
+	state.rocket_id = 0;
 	audio_sound_play(EXPLOSION_SOUND);
 }
 
 static void on_enemy_collide_static(u32 self_id, u32 static_body_id, Hit hit) {
-	Entity *self = &entity_context.entity_array[self_id];
-	Static_Body *other = &physics_context.static_body_array[static_body_id];
+	Entity *self = &entity_state.entity_array[self_id];
+	Static_Body *other = &physics_state.static_body_array[static_body_id];
 	// Make sure not to flip when falling off a platform.
 	if (hit.normal[0] != 0 && other->aabb.position[1] + other->aabb.half_sizes[1] > self->aabb.position[1]) {
 		self->is_flipped = (u8)hit.normal[0];
@@ -213,7 +213,7 @@ static void on_enemy_collide_static(u32 self_id, u32 static_body_id, Hit hit) {
 }
 
 static void spawn_projectile(Projectile_Type type, f32 x, f32 y, f32 velocity_x, f32 velocity_y, f32 time_to_live, On_Collide_Function on_collide, On_Collide_Static_Function on_collide_static) {
-	Entity *player = entity_context.entity_array;
+	Entity *player = entity_state.entity_array;
 	u32 projectile_id;
 	switch (type) {
 	case PT_BULLET: {
@@ -224,7 +224,7 @@ static void spawn_projectile(Projectile_Type type, f32 x, f32 y, f32 velocity_x,
 	} break;
 	case PT_ROCKET: {
 		projectile_id = entity_create(ROCKET_TEXTURE, x, y, 4, 2.5f, 8, 5, -4, -2.5f, CL_BULLET);
-		Entity *projectile = &entity_context.entity_array[projectile_id];
+		Entity *projectile = &entity_state.entity_array[projectile_id];
 		projectile->acceleration[0] = player->is_flipped ? -velocity_x * 0.05f : velocity_x * 0.05f;
 		projectile->desired_velocity[0] = player->is_flipped ? -velocity_x : velocity_x;
 		projectile->velocity[0] = 0;
@@ -233,13 +233,13 @@ static void spawn_projectile(Projectile_Type type, f32 x, f32 y, f32 velocity_x,
 		projectile->on_collide_static = on_collide_static;
 		projectile->time_to_live = time_to_live;
 
-		context.rocket_id = projectile_id;
-		context.rocket_smoke_timer = 0.01f;
+		state.rocket_id = projectile_id;
+		state.rocket_smoke_timer = 0.01f;
 		return;
 	} break;
 	case PT_COUNT: break;
 	}
-	Entity *projectile = &entity_context.entity_array[projectile_id];
+	Entity *projectile = &entity_state.entity_array[projectile_id];
 	projectile->is_kinematic = 1;
 	projectile->velocity[0] = player->is_flipped ? -velocity_x : velocity_x;
 	projectile->velocity[1] = velocity_y;
@@ -249,13 +249,13 @@ static void spawn_projectile(Projectile_Type type, f32 x, f32 y, f32 velocity_x,
 }
 
 static void on_box_collide(u32 self_id, u32 other_id, Hit hit) {
-	Entity *self = &entity_context.entity_array[self_id];
+	Entity *self = &entity_state.entity_array[self_id];
 	if (other_id == 0) {
-		Entity *player = &entity_context.entity_array[other_id];
+		Entity *player = &entity_state.entity_array[other_id];
 		Weapon_Type new_weapon_type = rand() % WT_COUNT;
 
 		// Don't pick up the same weapon twice.
-		if (context.weapon_type == new_weapon_type) {
+		if (state.weapon_type == new_weapon_type) {
 			if (new_weapon_type == WT_COUNT - 1) {
 				new_weapon_type = 0;
 			} else {
@@ -263,7 +263,7 @@ static void on_box_collide(u32 self_id, u32 other_id, Hit hit) {
 			}
 		}
 
-		context.weapon_type = new_weapon_type;
+		state.weapon_type = new_weapon_type;
 		entity_destroy(self_id);
 
 		switch (new_weapon_type) {
@@ -277,8 +277,8 @@ static void on_box_collide(u32 self_id, u32 other_id, Hit hit) {
 
 		player->texture = PLAYER_TEXTURE;
 
-		++context.score;
-		sprintf(context.score_string, "%d", context.score);
+		++state.score;
+		sprintf(state.score_string, "%d", state.score);
 
 		spawn_box();
 		audio_sound_play(BOX_SOUND);
@@ -286,26 +286,26 @@ static void on_box_collide(u32 self_id, u32 other_id, Hit hit) {
 }
 
 static void spawn_box() {
-	f32 *region = BOX_SPAWN_REGIONS[rand() % SPAWN_REGION_COUNT];
+	const f32 *region = &BOX_SPAWN_REGIONS[rand() % SPAWN_REGION_COUNT];
 	f32 x = frandr(region[0], region[0] + region[2]);
 	f32 y = frandr(region[1], region[1] + region[3]);
 	u32 id = entity_create(BOX_TEXTURE, x, y, 4, 4, 8, 8, -4, -4, CL_BOX);
-	Entity *entity = &entity_context.entity_array[id];
+	Entity *entity = &entity_state.entity_array[id];
 	entity->on_collide = on_box_collide;
 }
 
 static void reset() {
-	Entity *player = &entity_context.entity_array[0];
+	Entity *player = &entity_state.entity_array[0];
 	player->aabb.position[0] = PLAYER_SPAWN_X;
 	player->aabb.position[1] = PLAYER_SPAWN_Y;
 	player->velocity[0] = 0;
 	player->velocity[1] = 0;
-	memset(&entity_context.entity_array[1], 0, (MAX_ENTITIES - 1) * sizeof(Entity));
-	context.weapon_type = WT_PISTOL;
-	player->texture = PLAYER_PISTOL_TEXTURE;
+	memset(&entity_state.entity_array[1], 0, (MAX_ENTITIES - 1) * sizeof(Entity));
+	state.weapon_type = WT_PISTOL;
+	player->texture = PLAYER_TEXTURE;
 	spawn_box();
-	context.score = 0;
-	sprintf(context.score_string, "%d", context.score);
+	state.score = 0;
+	sprintf(state.score_string, "%d", state.score);
 	audio_music_play(STAGE_1_THEME);
 	Mix_VolumeMusic(MIX_MAX_VOLUME/2);
 }
@@ -313,28 +313,22 @@ static void reset() {
 static void handle_input() {
 }
 
-void update() {
-}
-
-void render() {
-}
-
 int main(void) {
 	srand(time(NULL));
 
-	// Setup contexts.
-	entity_setup(&entity_context);
-	render_setup(&render_context);
-	physics_setup(&physics_context);
-	input_setup(&input_context);
+	// Setup states.
+	entity_setup();
+	render_setup();
+	physics_setup();
+	input_setup();
 	audio_setup();
 
 	// Set up collision layer matrix.
-	physics_context.mask_array[0] = 10;
-	physics_context.mask_array[1] = 13;
-	physics_context.mask_array[2] = 10;
-	physics_context.mask_array[3] = 15;
-	physics_context.mask_array[4] = 13;
+	physics_state.mask_array[0] = 10;
+	physics_state.mask_array[1] = 13;
+	physics_state.mask_array[2] = 10;
+	physics_state.mask_array[3] = 15;
+	physics_state.mask_array[4] = 13;
 
 	// Setup textures.
 	TERRAIN_TEXTURE = render_texture_create("./assets/terrain.png");
@@ -372,12 +366,9 @@ int main(void) {
 	audio_music_load(&STAGE_1_THEME, "assets/stage_1_theme.mp3");
 
 	// Setup player.
-	u32 player_id = entity_create(PLAYER_TEXTURE, PLAYER_SPAWN_X, PLAYER_SPAWN_Y, 4, 4, 16, 10, -8, -3.5f, CL_PLAYER);
-	Entity *player = &entity_context.entity_array[player_id];
+	u32 player_id = entity_create(PLAYER_TEXTURE, PLAYER_SPAWN_X, PLAYER_SPAWN_Y, 4, 4, 16, 10, -8, -4, CL_PLAYER);
+	Entity *player = &entity_state.entity_array[player_id];
 	player->on_collide = on_player_collide;
-
-	context.weapon_type = WT_ROCKET_LAUNCHER;
-	player->texture = PLAYER_ROCKET_LAUNCHER_TEXTURE;
 
 	// Setup terrain.
 	// Bottom.
@@ -407,20 +398,24 @@ int main(void) {
 	Trigger *trigger = physics_trigger_create(128, 8, 12, 8);
 	trigger->on_trigger = on_fire_trigger;
 
+	// Set up animations.
+	{
+	}
+
 	reset();
 
-	context.previous_time = (f32)SDL_GetTicks();
+	state.previous_time = (f32)SDL_GetTicks();
 
-	while (!context.should_quit) {
-		context.time_now = (f32)SDL_GetTicks();
-		context.delta_time = (context.time_now - context.time_last_frame) / 1000;
-		context.time_last_frame = context.time_now;
+	while (!state.should_quit) {
+		state.time_now = (f32)SDL_GetTicks();
+		state.delta_time = (state.time_now - state.time_last_frame) / 1000;
+		state.time_last_frame = state.time_now;
 
-		context.frame_count++;
-		if (context.time_now - context.previous_time >= 1000.0f) {
-			context.frame_rate = context.frame_count;
-			context.frame_count = 0;
-			context.previous_time = context.time_now;
+		state.frame_count++;
+		if (state.time_now - state.previous_time >= 1000.0f) {
+			state.frame_rate = state.frame_count;
+			state.frame_count = 0;
+			state.previous_time = state.time_now;
 		}
 
 		/////////////////////////////////////////////////////////////////////
@@ -436,56 +431,56 @@ int main(void) {
 			}
 		}
 
-		Entity *player = &entity_context.entity_array[0];
+		Entity *player = &entity_state.entity_array[0];
 
 		f32 horizontal_velocity = 0;
 		f32 vertical_velocity = player->velocity[1];
 
-		context.weapon_kick -= 1000 * context.delta_time;
+		state.weapon_kick -= 1000 * state.delta_time;
 
 		const u8 *keyboard_state = SDL_GetKeyboardState(NULL);
 
 		if (keyboard_state[SDL_SCANCODE_ESCAPE]) {
-			context.should_quit = 1;
+			state.should_quit = 1;
 		}
 
-		if (keyboard_state[input_context.right]) {
+		if (keyboard_state[input_state.right]) {
 			horizontal_velocity += PLAYER_MOVEMENT_SPEED;
 			player->is_flipped = 0;
 		}
 
-		if (keyboard_state[input_context.left]) {
+		if (keyboard_state[input_state.left]) {
 			horizontal_velocity -= PLAYER_MOVEMENT_SPEED;
 			player->is_flipped = 1;
 		}
 
-		if (!keyboard_state[input_context.jump] && context.jump_key_was_pressed) {
+		if (!keyboard_state[input_state.jump] && input_state.jump_key_was_pressed) {
 			vertical_velocity *= 0.5f;
-			context.jump_key_was_pressed = 0;
+			input_state.jump_key_was_pressed = 0;
 		}
 
-		if (keyboard_state[input_context.jump]) {
+		if (keyboard_state[input_state.jump]) {
 			if (player->is_grounded) {
 				player->is_grounded = 0;
-				context.jump_key_was_pressed = 1;
+				input_state.jump_key_was_pressed = 1;
 				vertical_velocity = PLAYER_JUMP_VELOCITY;
 				audio_sound_play(JUMP_SOUND);
 			}
 		}
 
 		if (keyboard_state[SDL_SCANCODE_E]) {
-			if (context.shoot_timer <= 0) {
-				switch (context.weapon_type) {
+			if (state.shoot_timer <= 0) {
+				switch (state.weapon_type) {
 				case WT_MACHINE_GUN: {
 					audio_sound_play(MACHINE_GUN_SOUND);
-					context.shoot_timer = 0.05f;
+					state.shoot_timer = 0.05f;
 					spawn_projectile(PT_BULLET, player->aabb.position[0], player->aabb.position[1], 400, frandr(-15, 15), 9, on_bullet_collide, on_bullet_collide_static);
-					context.weapon_kick = 100;
+					state.weapon_kick = 100;
 					render_screen_shake_add(0.05f, 0.15f);
 				} break;
 				case WT_SHOTGUN: {
 					audio_sound_play(SHOTGUN_SOUND);
-					context.shoot_timer = 0.75f;
+					state.shoot_timer = 0.75f;
 					render_screen_shake_add(0.1f, 0.75f);
 					for (u32 i = 0; i < 15; ++i) {
 						f32 vy = frandr(-35, 35);
@@ -495,18 +490,18 @@ int main(void) {
 				} break;
 				case WT_ROCKET_LAUNCHER: {
 					audio_sound_play(ROCKET_LAUNCHED_SOUND);
-					context.shoot_timer = 1.25f;
+					state.shoot_timer = 1.25f;
 					spawn_projectile(PT_ROCKET, player->aabb.position[0], player->aabb.position[1], 200, 0, 9, on_rocket_collide, on_rocket_collide);
 				} break;
 				case WT_PISTOL: {
 					audio_sound_play(SHOOT_SOUND);
-					context.shoot_timer = 0.25f;
+					state.shoot_timer = 0.25f;
 					spawn_projectile(PT_BULLET, player->aabb.position[0], player->aabb.position[1], 300, 0, 9, on_bullet_collide, on_bullet_collide_static);
 					render_screen_shake_add(0.05f, 0.03f);
 				} break;
 				case WT_REVOLVER: {
 					audio_sound_play(REVOLVER_SOUND);
-					context.shoot_timer = 0.55f;
+					state.shoot_timer = 0.55f;
 					spawn_projectile(PT_BULLET_LARGE, player->aabb.position[0], player->aabb.position[1], 300, 0, 9, on_bullet_large_collide, on_bullet_collide_static);
 					render_screen_shake_add(0.1f, 0.75f);
 				} break;
@@ -515,8 +510,8 @@ int main(void) {
 			}
 		}
 
-		if (context.weapon_kick >= 0) {
-			horizontal_velocity = player->is_flipped ? context.weapon_kick : -context.weapon_kick;
+		if (state.weapon_kick >= 0) {
+			horizontal_velocity = player->is_flipped ? state.weapon_kick : -state.weapon_kick;
 		}
 
 		player->velocity[0] = horizontal_velocity;
@@ -526,13 +521,12 @@ int main(void) {
 		// Update state.
 		/////////////////////////////////////////////////////////////////////
 
-		context.shoot_timer -= context.delta_time;
+		state.shoot_timer -= state.delta_time;
 
 		// Spawn enemy.
-		// context.spawn_timer -= context.delta_time;
-		// if (context.spawn_timer < 0) {
-		if (entity_context.entity_array_count < 1500) {
-			context.spawn_timer = frandr(2, 4);
+		state.spawn_timer -= state.delta_time;
+		if (state.spawn_timer < 0) {
+			state.spawn_timer = frandr(2, 4);
 			u8 is_flipped = (rand() % 100) > 50;
 			u8 health = 3;
 			u32 enemy_id = 0;
@@ -546,7 +540,7 @@ int main(void) {
 				speed = 40;
 			}
 
-			Entity *enemy = &entity_context.entity_array[enemy_id];
+			Entity *enemy = &entity_state.entity_array[enemy_id];
 			enemy->health = health;
 			enemy->is_flipped = is_flipped;
 			enemy->velocity[0] = is_flipped ? -speed : speed;
@@ -562,41 +556,41 @@ int main(void) {
 		glClearColor(0.0, 0.0, 0.0, 1);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		glUseProgram(render_context.shader);
+		glUseProgram(render_state.shader);
 
 		// Render terrain.
 		// It's rendered before physics is updated as physics may have some debug rendering.
-		render_sprite(TERRAIN_TEXTURE, (vec3){0, 0, 0}, (vec2){256, 224}, NULL, 0, (vec4){1, 1, 1, 1}, 0);
+		render_sprite(TERRAIN_TEXTURE, NULL, (vec3){0, 0, 0}, NULL, 0, (vec4){1, 1, 1, 1}, 0);
 
 		// Update physics.
-		physics_tick(context.delta_time, entity_context.entity_array);
+		physics_tick(state.delta_time, entity_state.entity_array);
 		physics_cleanup();
 
-		render_screen_shake(context.delta_time);
+		render_screen_shake(state.delta_time);
 
 		// Render explosion.
-		if (context.rocket_explosion_timer > 0) {
-			glUseProgram(render_context.circle_shader);
-			f32 pct = 1.0f - context.rocket_explosion_timer / EXPLOSION_TIME;
-			render_circle(context.rocket_explosion_position[0],
-			              context.rocket_explosion_position[1],
+		if (state.rocket_explosion_timer > 0) {
+			glUseProgram(render_state.circle_shader);
+			f32 pct = 1.0f - state.rocket_explosion_timer / EXPLOSION_TIME;
+			render_circle(state.rocket_explosion_position[0],
+			              state.rocket_explosion_position[1],
 			              EXPLOSION_RADIUS * pct, (vec4){1, 1, 1, 1});
-			context.rocket_explosion_timer -= context.delta_time;
+			state.rocket_explosion_timer -= state.delta_time;
 			rocket_damage(pct);
 		}
 
-		glUseProgram(render_context.shader);
+		glUseProgram(render_state.shader);
 
 		// Spawn rocket smoke.
-		if (context.rocket_id > 0) {
-			Entity *rocket = &entity_context.entity_array[context.rocket_id];
-			if (context.rocket_smoke_timer >= 0)
-				context.rocket_smoke_timer -= context.delta_time;
+		if (state.rocket_id > 0) {
+			Entity *rocket = &entity_state.entity_array[state.rocket_id];
+			if (state.rocket_smoke_timer >= 0)
+				state.rocket_smoke_timer -= state.delta_time;
 
-			if (rocket->is_in_use && context.rocket_smoke_timer < 0) {
+			if (rocket->is_in_use && state.rocket_smoke_timer < 0) {
 				u32 smoke_id = entity_create(SMOKE_TEXTURE, rocket->aabb.position[0], rocket->aabb.position[1], 0, 0, 10, 10, -5, -5, 5);
-				Entity *smoke = &entity_context.entity_array[smoke_id];
-				context.rocket_smoke_timer = 0.05f;
+				Entity *smoke = &entity_state.entity_array[smoke_id];
+				state.rocket_smoke_timer = 0.05f;
 				smoke->rotation = frandr(0, 2 * PI);
 				smoke->is_kinematic = 1;
 				smoke->time_to_live = frandr(0.8f, 1.2f);
@@ -609,12 +603,12 @@ int main(void) {
 
 		// Update / render entities.
 		for (u32 i = 0; i < MAX_ENTITIES; ++i) {
-			Entity *entity = &entity_context.entity_array[i];
+			Entity *entity = &entity_state.entity_array[i];
 			if (entity->is_in_use) {
 				if (entity->time_to_live > 0) {
 					if (!entity->is_kinematic)
-						entity->rotation += context.delta_time * 10;
-					entity->time_to_live -= context.delta_time;
+						entity->rotation += state.delta_time * 10;
+					entity->time_to_live -= state.delta_time;
 					if (entity->time_to_live <= 0) {
 						entity_destroy(i);
 					}
@@ -639,7 +633,7 @@ int main(void) {
 		// {-0.5f, -0.5f, 0, 0.0f, 0.0f},
 		// {-0.5f,  0.5f, 0, 0.0f, 1.0f}
 				};
-				render_sprite(entity->texture, position, entity->sprite_size, uvs, entity->rotation, entity->sprite_color, entity->is_flipped);
+				render_sprite(entity->texture, NULL, position, uvs, entity->rotation, entity->sprite_color, entity->is_flipped);
 
 #if DEBUG
 				// Render entity colliders.
@@ -658,16 +652,16 @@ int main(void) {
 
 #if DEBUG
 		// Render terrain colliders.
-		for (u32 i = 0; i < physics_context.static_body_array_count; ++i) {
+		for (u32 i = 0; i < physics_state.static_body_array_count; ++i) {
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-			render_aabb(physics_context.static_body_array[i].aabb, (vec4){1, 1, 1, 1});
+			render_aabb(physics_state.static_body_array[i].aabb, (vec4){1, 1, 1, 1});
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		}
 
 		// Render triggers.
-		for (u32 i = 0; i < physics_context.trigger_array_count; ++i) {
+		for (u32 i = 0; i < physics_state.trigger_array_count; ++i) {
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-			render_aabb(physics_context.trigger_array[i].aabb, (vec4){1, 1, 0, 1});
+			render_aabb(physics_state.trigger_array[i].aabb, (vec4){1, 1, 0, 1});
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		}
 
@@ -680,13 +674,13 @@ int main(void) {
 		}
 #endif
 
-		glUseProgram(render_context.text_shader);
-		render_text(context.score_string, 128, 194, (vec4){1, 1, 1, 1}, 1);
+		glUseProgram(render_state.text_shader);
+		render_text(state.score_string, 128, 194, (vec4){1, 1, 1, 1}, 1);
 
 		char fps[6] = {0};
-		sprintf(fps, "%u", context.frame_rate);
+		sprintf(fps, "%u", state.frame_rate);
 		
 		render_text(fps, 20, 20, (vec4){1, 1, 1, 1}, 1);
-		SDL_GL_SwapWindow(render_context.window);
+		SDL_GL_SwapWindow(render_state.window);
 	}
 }

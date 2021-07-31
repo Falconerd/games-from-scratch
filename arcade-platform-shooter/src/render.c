@@ -6,6 +6,9 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
+Render_State render_state = {0};
+static Render_State *state = &render_state;
+
 typedef struct character_data {
 	u32 texture;
 	u32 advance_x;
@@ -23,14 +26,10 @@ static u32 text_atlas_height = 0;
 static FT_Face face;
 static FT_GlyphSlot g;
 
-static Render_Context *context;
-
-static void texture_setup(u32 texture);
+static void texture_setup(u32 texture_id);
 static u32 shader_setup(const char *vert_path, const char *frag_path);
 
-void render_setup(Render_Context *render_context) {
-	context = render_context;
-
+void render_setup() {
 	// Setup the window.
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		printf("Could not init SDL\n");
@@ -43,13 +42,13 @@ void render_setup(Render_Context *render_context) {
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
-	context->window = SDL_CreateWindow(GAME_TITLE, 0, 0, WIDTH * SCALE, HEIGHT * SCALE, SDL_WINDOW_OPENGL);
-	if (!context->window) {
+	state->window = SDL_CreateWindow(GAME_TITLE, 0, 0, WIDTH * SCALE, HEIGHT * SCALE, SDL_WINDOW_OPENGL);
+	if (!state->window) {
 		printf("Failed to init window: %s\n", SDL_GetError());
 		exit(1);
 	}
 
-	SDL_GL_CreateContext(context->window);
+	SDL_GL_CreateContext(state->window);
 	if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
 		error_and_exit(-1, "Failed to init GLAD");
 	}
@@ -65,11 +64,11 @@ void render_setup(Render_Context *render_context) {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_BLEND);
 
-	context->shader = shader_setup("./shaders/default.vert", "./shaders/default.frag");
+	state->shader = shader_setup("./shaders/default.vert", "./shaders/default.frag");
 
 	// Setup color texture.
-	glGenTextures(1, &context->color_texture);
-	texture_setup(context->color_texture);
+	glGenTextures(1, &state->color_texture);
+	texture_setup(state->color_texture);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, (u8[4]){255, 255, 255, 255});
 
 	stbi_set_flip_vertically_on_load(1);
@@ -85,15 +84,15 @@ void render_setup(Render_Context *render_context) {
 		0, 1, 3,
 		1, 2, 3
 	};
-	glGenVertexArrays(1, &context->quad_vao);
-	glGenBuffers(1, &context->quad_vbo);
-	glGenBuffers(1, &context->quad_ebo);
+	glGenVertexArrays(1, &state->quad_vao);
+	glGenBuffers(1, &state->quad_vbo);
+	glGenBuffers(1, &state->quad_ebo);
 
-	glBindVertexArray(context->quad_vao);
-	glBindBuffer(GL_ARRAY_BUFFER, context->quad_vao);
+	glBindVertexArray(state->quad_vao);
+	glBindBuffer(GL_ARRAY_BUFFER, state->quad_vao);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
 
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, context->quad_ebo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, state->quad_ebo);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quad_indices), quad_indices, GL_STATIC_DRAW);
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(f32), NULL);
@@ -107,11 +106,11 @@ void render_setup(Render_Context *render_context) {
 
 	// Setup line rendering.
 	f32 line_vertices[] = { 0, 0, 0, 1, 1, 1 };
-	glGenVertexArrays(1, &context->line_vao);
-	glGenBuffers(1, &context->line_vbo);
+	glGenVertexArrays(1, &state->line_vao);
+	glGenBuffers(1, &state->line_vbo);
 
-	glBindVertexArray(context->line_vao);
-	glBindBuffer(GL_ARRAY_BUFFER, context->line_vbo);
+	glBindVertexArray(state->line_vao);
+	glBindBuffer(GL_ARRAY_BUFFER, state->line_vbo);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(line_vertices), line_vertices, GL_DYNAMIC_DRAW);
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(f32), NULL);
@@ -121,16 +120,16 @@ void render_setup(Render_Context *render_context) {
 	glBindVertexArray(0);
 
 	// Setup circle shader.
-	context->circle_shader = shader_setup("./shaders/circle.vert", "./shaders/circle.frag");
+	state->circle_shader = shader_setup("./shaders/circle.vert", "./shaders/circle.frag");
 
 	// Setup text shader.
-	context->text_shader = shader_setup("./shaders/text.vert", "./shaders/text.frag");
+	state->text_shader = shader_setup("./shaders/text.vert", "./shaders/text.frag");
 
-	glGenVertexArrays(1, &context->text_vao);
-	glGenBuffers(1, &context->text_vbo);
+	glGenVertexArrays(1, &state->text_vao);
+	glGenBuffers(1, &state->text_vbo);
 
-	glBindVertexArray(context->text_vao);
-	glBindBuffer(GL_ARRAY_BUFFER, context->text_vbo);
+	glBindVertexArray(state->text_vao);
+	glBindBuffer(GL_ARRAY_BUFFER, state->text_vbo);
 	glBufferData(GL_ARRAY_BUFFER, 0, NULL, GL_STATIC_DRAW);
 
 	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(f32), NULL);
@@ -194,10 +193,10 @@ void render_setup(Render_Context *render_context) {
 	FT_Done_Face(face);
 	FT_Done_FreeType(ft);
 
-	glGenVertexArrays(1, &context->text_vao);
-	glGenBuffers(1, &context->text_vbo);
-	glBindVertexArray(context->text_vao);
-	glBindBuffer(GL_ARRAY_BUFFER, context->text_vbo);
+	glGenVertexArrays(1, &state->text_vao);
+	glGenBuffers(1, &state->text_vbo);
+	glBindVertexArray(state->text_vao);
+	glBindBuffer(GL_ARRAY_BUFFER, state->text_vbo);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(f32) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
 	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(f32), 0);
 	glEnableVertexAttribArray(0);
@@ -205,43 +204,43 @@ void render_setup(Render_Context *render_context) {
 	glBindVertexArray(0);
 
 	// Setup projection matrix for each shader.
-	mat4x4_ortho(context->projection, 0, WIDTH, 0, HEIGHT, -2.0f, 2.0f);
+	mat4x4_ortho(state->projection, 0, WIDTH, 0, HEIGHT, -2.0f, 2.0f);
 
-	glUseProgram(context->shader);
-	glUniformMatrix4fv(glGetUniformLocation(context->shader, "projection"), 1, GL_FALSE, &context->projection[0][0]);
-	glUseProgram(context->circle_shader);
-	glUniformMatrix4fv(glGetUniformLocation(context->circle_shader, "projection"), 1, GL_FALSE, &context->projection[0][0]);
+	glUseProgram(state->shader);
+	glUniformMatrix4fv(glGetUniformLocation(state->shader, "projection"), 1, GL_FALSE, &state->projection[0][0]);
+	glUseProgram(state->circle_shader);
+	glUniformMatrix4fv(glGetUniformLocation(state->circle_shader, "projection"), 1, GL_FALSE, &state->projection[0][0]);
 
 	m4 text_projection;
 	mat4x4_identity(text_projection);
 	mat4x4_ortho(text_projection, 0, WIDTH * SCALE, 0, HEIGHT * SCALE, -2.0f, 2.0f);
-	glUseProgram(context->text_shader);
-	glUniformMatrix4fv(glGetUniformLocation(context->text_shader, "projection"), 1, GL_FALSE, &text_projection[0][0]);
+	glUseProgram(state->text_shader);
+	glUniformMatrix4fv(glGetUniformLocation(state->text_shader, "projection"), 1, GL_FALSE, &text_projection[0][0]);
 }
 
 void render_screen_shake_add(f32 duration, f32 magnitude) {
-	context->screen_shake_timer += duration;
-	context->screen_shake_magnitude += magnitude;
+	state->screen_shake_timer += duration;
+	state->screen_shake_magnitude += magnitude;
 }
 
 void render_screen_shake(f32 delta_time) {
-	if (context->screen_shake_timer <= 0) {
-		context->screen_shake_magnitude = 0;
-		mat4x4_ortho(context->projection, 0, WIDTH, 0, HEIGHT, -2.0f, 2.0f);
-		glUniformMatrix4fv(glGetUniformLocation(context->shader, "projection"), 1, GL_FALSE, &context->projection[0][0]);
+	if (state->screen_shake_timer <= 0) {
+		state->screen_shake_magnitude = 0;
+		mat4x4_ortho(state->projection, 0, WIDTH, 0, HEIGHT, -2.0f, 2.0f);
+		glUniformMatrix4fv(glGetUniformLocation(state->shader, "projection"), 1, GL_FALSE, &state->projection[0][0]);
 		return;
 	} else {
-		context->screen_shake_timer -= delta_time;
+		state->screen_shake_timer -= delta_time;
 	}
-	f32 x = frandr(-context->screen_shake_magnitude, context->screen_shake_magnitude);
-	f32 y = frandr(-context->screen_shake_magnitude, context->screen_shake_magnitude);
-	glUseProgram(context->shader);
-	mat4x4_ortho(context->projection, 0 + x, WIDTH + x, 0 + y, HEIGHT + y, -2.0f, 2.0f);
-	glUniformMatrix4fv(glGetUniformLocation(context->shader, "projection"), 1, GL_FALSE, &context->projection[0][0]);
+	f32 x = frandr(-state->screen_shake_magnitude, state->screen_shake_magnitude);
+	f32 y = frandr(-state->screen_shake_magnitude, state->screen_shake_magnitude);
+	glUseProgram(state->shader);
+	mat4x4_ortho(state->projection, 0 + x, WIDTH + x, 0 + y, HEIGHT + y, -2.0f, 2.0f);
+	glUniformMatrix4fv(glGetUniformLocation(state->shader, "projection"), 1, GL_FALSE, &state->projection[0][0]);
 }
 
-static void texture_setup(u32 texture) {
-	glBindTexture(GL_TEXTURE_2D, texture);
+static void texture_setup(u32 texture_id) {
+	glBindTexture(GL_TEXTURE_2D, texture_id);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);   
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -292,10 +291,10 @@ typedef struct point {
 } Point;
 
 void render_text(const char *text, f32 x, f32 y, vec4 color, u8 is_centered) {
-	glUseProgram(context->text_shader);
-	glUniform4fv(glGetUniformLocation(context->text_shader, "color"), 1, color);
+	glUseProgram(state->text_shader);
+	glUniform4fv(glGetUniformLocation(state->text_shader, "color"), 1, color);
 	glActiveTexture(GL_TEXTURE0);
-	glBindVertexArray(context->text_vao);
+	glBindVertexArray(state->text_vao);
 
 	x *= SCALE;
 	y *= SCALE;
@@ -329,7 +328,7 @@ void render_text(const char *text, f32 x, f32 y, vec4 color, u8 is_centered) {
 		};
 
 		glBindTexture(GL_TEXTURE_2D, cd.texture);
-		glBindBuffer(GL_ARRAY_BUFFER, context->text_vbo);
+		glBindBuffer(GL_ARRAY_BUFFER, state->text_vbo);
 		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof vertices, vertices);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -348,13 +347,13 @@ void render_circle(f32 x, f32 y, f32 radius, vec4 color) {
 
 	float r[] = {radius * SCALE};
 
-	glUniformMatrix4fv(glGetUniformLocation(context->circle_shader, "model"), 1, GL_FALSE, &model[0][0]);
-	glUniform4fv(glGetUniformLocation(context->circle_shader, "color"), 1, color);
-	glUniform2fv(glGetUniformLocation(context->circle_shader, "position"), 1, (vec2){x * SCALE, y * SCALE});
-	glUniform1fv(glGetUniformLocation(context->circle_shader, "radius"), 1, &r[0]);
+	glUniformMatrix4fv(glGetUniformLocation(state->circle_shader, "model"), 1, GL_FALSE, &model[0][0]);
+	glUniform4fv(glGetUniformLocation(state->circle_shader, "color"), 1, color);
+	glUniform2fv(glGetUniformLocation(state->circle_shader, "position"), 1, (vec2){x * SCALE, y * SCALE});
+	glUniform1fv(glGetUniformLocation(state->circle_shader, "radius"), 1, &r[0]);
 
-	glBindTexture(GL_TEXTURE_2D, context->color_texture);
-	glBindVertexArray(context->quad_vao);
+	glBindTexture(GL_TEXTURE_2D, state->color_texture);
+	glBindVertexArray(state->quad_vao);
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
@@ -365,11 +364,11 @@ void render_quad(f32 x, f32 y, f32 width, f32 height, vec4 color) {
 	mat4x4_translate(model, x + width * 0.5f, y + height * 0.5f, 0.0f);
 	mat4x4_scale_aniso(model, model, width, height, 1.0f);
 
-	glUniformMatrix4fv(glGetUniformLocation(context->shader, "model"), 1, GL_FALSE, &model[0][0]);
-	glUniform4fv(glGetUniformLocation(context->shader, "color"), 1, color);
+	glUniformMatrix4fv(glGetUniformLocation(state->shader, "model"), 1, GL_FALSE, &model[0][0]);
+	glUniform4fv(glGetUniformLocation(state->shader, "color"), 1, color);
 
-	glBindTexture(GL_TEXTURE_2D, context->color_texture);
-	glBindVertexArray(context->quad_vao);
+	glBindTexture(GL_TEXTURE_2D, state->color_texture);
+	glBindVertexArray(state->quad_vao);
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
@@ -379,11 +378,11 @@ void render_point(vec2 position, vec4 color) {
 
 	mat4x4_translate(model, position[0], position[1], 0);
 
-	glUniformMatrix4fv(glGetUniformLocation(context->shader, "model"), 1, GL_FALSE, &model[0][0]);
-	glUniform4fv(glGetUniformLocation(context->shader, "color"), 1, color);
+	glUniformMatrix4fv(glGetUniformLocation(state->shader, "model"), 1, GL_FALSE, &model[0][0]);
+	glUniform4fv(glGetUniformLocation(state->shader, "color"), 1, color);
 
-	glBindTexture(GL_TEXTURE_2D, context->color_texture);
-	glBindVertexArray(context->quad_vao);
+	glBindTexture(GL_TEXTURE_2D, state->color_texture);
+	glBindVertexArray(state->quad_vao);
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
@@ -400,13 +399,13 @@ void render_segment(vec2 start, vec2 end, vec4 color) {
 
 	mat4x4_translate(model, start[0], start[1], 0);
 
-	glUniformMatrix4fv(glGetUniformLocation(context->shader, "model"), 1, GL_FALSE, &model[0][0]);
-	glUniform4fv(glGetUniformLocation(context->shader, "color"), 1, color);
+	glUniformMatrix4fv(glGetUniformLocation(state->shader, "model"), 1, GL_FALSE, &model[0][0]);
+	glUniform4fv(glGetUniformLocation(state->shader, "color"), 1, color);
 
-	glBindTexture(GL_TEXTURE_2D, context->color_texture);
-	glBindVertexArray(context->line_vao);
+	glBindTexture(GL_TEXTURE_2D, state->color_texture);
+	glBindVertexArray(state->line_vao);
 	glEnableVertexAttribArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, context->line_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, state->line_vbo);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, (sizeof line), &line);
 	glDrawArrays(GL_LINES, 0, 2);
 	glDisableVertexAttribArray(0);
@@ -431,7 +430,7 @@ void render_ray(vec2 start, vec2 direction, f32 length, vec4 color, u8 arrow) {
 	}
 }
 
-void render_sprite(u32 texture, vec3 position, vec2 size, f32 tex_coords[8], f32 rotation, vec4 color, u8 is_flipped) {
+void render_sprite(Texture texture, vec2 size, vec3 position, f32 tex_coords[8], f32 rotation, vec4 color, u8 is_flipped) {
 	f32 vertices[4][5] = {
 		{ 0.5f,  0.5f, 0, 1.0f, 1.0f},
 		{ 0.5f, -0.5f, 0, 1.0f, 0.0f},
@@ -450,34 +449,52 @@ void render_sprite(u32 texture, vec3 position, vec2 size, f32 tex_coords[8], f32
 		vertices[3][4] = tex_coords[7];
 	}
 
-	glBindBuffer(GL_ARRAY_BUFFER, context->quad_vbo);
+	f32 width = texture.width;
+	f32 height = texture.height;
+
+	if (size) {
+		width = size[0];
+		height = size[1];
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, state->quad_vbo);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof vertices, vertices);
 
 	m4 model;
 	mat4x4_identity(model);
 
-	mat4x4_translate(model, position[0] + size[0] * 0.5f, position[1] + size[1] * 0.5f, 0.0f);
+	mat4x4_translate(model, position[0] + width * 0.5f, position[1] + height * 0.5f, 0.0f);
 	mat4x4_rotate(model, model, 0, 0, 1, rotation);
-	mat4x4_scale_aniso(model, model, is_flipped ? -size[0] : size[0], size[1], 1.0f);
+	mat4x4_scale_aniso(model, model, is_flipped ? -width : width, height, 1.0f);
 
-	glUniformMatrix4fv(glGetUniformLocation(context->shader, "model"), 1, GL_FALSE, &model[0][0]);
-	glUniform4fv(glGetUniformLocation(context->shader, "color"), 1, color);
+	glUniformMatrix4fv(glGetUniformLocation(state->shader, "model"), 1, GL_FALSE, &model[0][0]);
+	glUniform4fv(glGetUniformLocation(state->shader, "color"), 1, color);
 
-	glBindTexture(GL_TEXTURE_2D, texture);
-	glBindVertexArray(context->quad_vao);
+	glBindTexture(GL_TEXTURE_2D, texture.id);
+	glBindVertexArray(state->quad_vao);
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
-u32 render_texture_create(const char *path) {
-	u32 texture;
-	glGenTextures(1, &texture);
-	texture_setup(texture);
-	i32 width, height, channel_count;
-	u8 *image_data = stbi_load(path, &width, &height, &channel_count, 0);
+void render_sprite_sheet_frame(Sprite_Sheet sprite_sheet, u8 row, u8 column, vec3 position, f32 rotation, vec4 color, u8 is_flipped) {
+	// Calculate texture coordinates.
+	f32 w = 1.0f / (sprite_sheet.texture.width / (f32)sprite_sheet.frame_width);
+	f32 h = 1.0f / (sprite_sheet.texture.height / (f32)sprite_sheet.frame_height);
+	f32 x = (f32)row * w;
+	f32 y = (f32)column * h;
+	f32 tex_coords[8] = {x + w, y + h, x + w, y, x, y, x, y + h};
+	// Render sprite.
+	render_sprite(sprite_sheet.texture, position, (vec2){sprite_sheet.frame_width, sprite_sheet.frame_height}, tex_coords, rotation, color, is_flipped);
+}
+
+Texture render_texture_create(const char *path) {
+	Texture texture = {0};
+	glGenTextures(1, &texture.id);
+	texture_setup(texture.id);
+	u8 *image_data = stbi_load(path, &texture.width, &texture.height, &texture.channel_count, 0);
 	if (!image_data) {
 		error_and_exit(EXIT_FAILURE, "Failed to load image\n");
 	}
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture.width, texture.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
 	stbi_image_free(image_data);
 	return texture;
 }
