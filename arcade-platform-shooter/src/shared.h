@@ -121,7 +121,7 @@ void render_setup();
 void render_quad(f32 x, f32 y, f32 width, f32 height, vec4 color);
 void render_circle(f32 x, f32 y, f32 radius, vec4 color);
 void render_text(const char *text, f32 x, f32 y, vec4 color, u8 is_centered);
-void render_sprite(Texture texture, vec2 size, vec3 position, f32 tex_coords[8], f32 rotation, vec4 color, u8 is_flipped);
+void render_sprite(Texture texture, f32 size[2], vec3 position, f32 tex_coords[8], f32 rotation, vec4 color, u8 is_flipped);
 void render_point(vec2 position, vec4 color);
 void render_aabb(AABB aabb, vec4 color);
 void render_segment(vec2 start, vec2 end, vec4 color);
@@ -186,7 +186,7 @@ struct entity {
 	vec2 acceleration;
 	f32 rotation;
 
-	Texture texture;
+	u32 animation_id;
 	vec2 sprite_size;
 	vec2 sprite_offset;
 	vec4 sprite_color;
@@ -210,7 +210,7 @@ struct entity_state {
 };
 
 void entity_setup();
-u32 entity_create(Texture texture, f32 x, f32 y, f32 collider_half_width, f32 collider_half_height, f32 sprite_width, f32 sprite_height, f32 sprite_offset_x, f32 sprite_offset_y, u32 layer_mask);
+u32 entity_create(f32 x, f32 y, f32 collider_half_width, f32 collider_half_height, f32 sprite_width, f32 sprite_height, f32 sprite_offset_x, f32 sprite_offset_y, u32 layer_mask);
 void entity_destroy(u32 index);
 
 ////////////////////////////////////////////////////////////////////////
@@ -275,7 +275,7 @@ typedef struct animation_state {
 } Animation_State;
 
 u32 sprite_sheet_create(Texture texture, f32 frame_width, f32 frame_height);
-u32 sprite_animation_create(u32 sprite_sheet_id, u8 length, u8 *row_coordinate_array, u8 *column_coordinate_array, f32 *frame_time_array);
+u32 sprite_animation_create(u32 sprite_sheet_id, u8 length, u8 *row_coordinate_array, u8 *column_coordinate_array, f32 *frame_time_array, u8 does_loop);
 void sprite_animation_tick(f32 delta_time);
 
 #endif

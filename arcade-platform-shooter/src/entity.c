@@ -7,7 +7,7 @@ void entity_setup() {
 	state->entity_array = calloc(MAX_ENTITIES, sizeof(Entity));
 }
 
-u32 entity_create(Texture texture, f32 x, f32 y, f32 collider_half_width, f32 collider_half_height,
+u32 entity_create(f32 x, f32 y, f32 collider_half_width, f32 collider_half_height,
                   f32 sprite_width, f32 sprite_height, f32 sprite_offset_x, f32 sprite_offset_y, u32 layer_mask) {
 	u32 index = MAX_ENTITIES;
 	for (u32 i = 0; i < MAX_ENTITIES; ++i) {
@@ -24,7 +24,7 @@ u32 entity_create(Texture texture, f32 x, f32 y, f32 collider_half_width, f32 co
 	Entity *entity = &state->entity_array[index];
 	memset(entity, 0, sizeof(*entity));
 
-	entity->texture = texture;
+	entity->animation_id = 0xdeadbeef;
 	entity->aabb.position[0] = x;
 	entity->aabb.position[1] = y;
 	entity->aabb.half_sizes[0] = collider_half_width;

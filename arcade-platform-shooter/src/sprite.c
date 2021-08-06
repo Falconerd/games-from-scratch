@@ -49,7 +49,7 @@ u32 sprite_sheet_create(Texture texture, f32 frame_width, f32 frame_height) {
 	return index;
 }
 
-u32 sprite_animation_create(u32 sprite_sheet_id, u8 length, u8 *row_coordinate_array, u8 *column_coordinate_array, f32 *frame_time_array) {
+u32 sprite_animation_create(u32 sprite_sheet_id, u8 length, u8 *row_coordinate_array, u8 *column_coordinate_array, f32 *frame_time_array, u8 does_loop) {
 	u32 index = state->sprite_animation_array_count++;
 	if (index == MAX_SPRITE_ANIMATIONS)
 		error_and_exit(-1, "No more space for sprite animations.");
@@ -58,6 +58,7 @@ u32 sprite_animation_create(u32 sprite_sheet_id, u8 length, u8 *row_coordinate_a
 	sa->sprite_sheet_id = sprite_sheet_id;
 	sa->length = length;
 	sa->current_frame = 0;
+	sa->does_loop = does_loop;
 	memcpy(sa->row_coordinate_array, row_coordinate_array, length * sizeof(u8));
 	memcpy(sa->column_coordinate_array, column_coordinate_array, length * sizeof(u8));
 	memcpy(sa->frame_time_array, frame_time_array, length * sizeof(f32));

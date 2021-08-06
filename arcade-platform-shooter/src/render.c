@@ -430,7 +430,7 @@ void render_ray(vec2 start, vec2 direction, f32 length, vec4 color, u8 arrow) {
 	}
 }
 
-void render_sprite(Texture texture, vec2 size, vec3 position, f32 tex_coords[8], f32 rotation, vec4 color, u8 is_flipped) {
+void render_sprite(Texture texture, f32 size[2], vec3 position, f32 tex_coords[8], f32 rotation, vec4 color, u8 is_flipped) {
 	f32 vertices[4][5] = {
 		{ 0.5f,  0.5f, 0, 1.0f, 1.0f},
 		{ 0.5f, -0.5f, 0, 1.0f, 0.0f},
@@ -452,7 +452,7 @@ void render_sprite(Texture texture, vec2 size, vec3 position, f32 tex_coords[8],
 	f32 width = texture.width;
 	f32 height = texture.height;
 
-	if (size) {
+	if (size != NULL) {
 		width = size[0];
 		height = size[1];
 	}
@@ -477,13 +477,14 @@ void render_sprite(Texture texture, vec2 size, vec3 position, f32 tex_coords[8],
 
 void render_sprite_sheet_frame(Sprite_Sheet sprite_sheet, u8 row, u8 column, vec3 position, f32 rotation, vec4 color, u8 is_flipped) {
 	// Calculate texture coordinates.
-	f32 w = 1.0f / (sprite_sheet.texture.width / (f32)sprite_sheet.frame_width);
-	f32 h = 1.0f / (sprite_sheet.texture.height / (f32)sprite_sheet.frame_height);
-	f32 x = (f32)row * w;
-	f32 y = (f32)column * h;
+	f32 w = 1.0f / ((f32)sprite_sheet.texture.width / (f32)sprite_sheet.frame_width);
+	f32 h = 1.0f / ((f32)sprite_sheet.texture.height / (f32)sprite_sheet.frame_height);
+	f32 x = (f32)column * w;
+	f32 y = (f32)row * h;
 	f32 tex_coords[8] = {x + w, y + h, x + w, y, x, y, x, y + h};
+	f32 size_override[2] = {(f32)sprite_sheet.frame_width, (f32)sprite_sheet.frame_height};
 	// Render sprite.
-	render_sprite(sprite_sheet.texture, position, (vec2){sprite_sheet.frame_width, sprite_sheet.frame_height}, tex_coords, rotation, color, is_flipped);
+	render_sprite(sprite_sheet.texture, size_override, position, tex_coords, rotation, color, is_flipped);
 }
 
 Texture render_texture_create(const char *path) {
