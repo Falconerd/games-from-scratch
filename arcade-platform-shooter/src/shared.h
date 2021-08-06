@@ -32,15 +32,15 @@
 // Defines and flags.
 ////////////////////////////////////////////////////////////////////////
 
-#define DEBUG 0
+#define DEBUG 1
 
 #define PI 3.14159265
 
 #define GAME_TITLE "Mega Box Crate"
 
-#define SCALE 4
-#define WIDTH 256
-#define HEIGHT 224
+#define SCALE 6
+#define WIDTH 384
+#define HEIGHT 216
 
 #define GRAVITY -20
 #define TERMINAL_VELOCITY -200
@@ -77,7 +77,6 @@ typedef struct physics_state Physics_State;
 typedef struct entity Entity;
 typedef struct entity_state Entity_State;
 
-typedef struct texture Texture;
 typedef struct render_state Render_State;
 
 typedef struct sprite_sheet Sprite_Sheet;
@@ -90,12 +89,12 @@ typedef void (*On_Trigger_Function)(u32 self_id, u32 trigger_id, Hit hit);
 // Render.
 ////////////////////////////////////////////////////////////////////////
 
-struct texture {
+typedef struct texture {
 	u32 id;
 	i32 width;
 	i32 height;
 	i32 channel_count;
-};
+} Texture;
 
 struct render_state {
 	SDL_Window *window;
@@ -275,6 +274,7 @@ typedef struct animation_state {
 	u32 sprite_sheet_array_count;
 } Animation_State;
 
+u32 sprite_sheet_create(Texture texture, f32 frame_width, f32 frame_height);
 u32 sprite_animation_create(u32 sprite_sheet_id, u8 length, u8 *row_coordinate_array, u8 *column_coordinate_array, f32 *frame_time_array);
 void sprite_animation_tick(f32 delta_time);
 

@@ -371,36 +371,57 @@ int main(void) {
 	player->on_collide = on_player_collide;
 
 	// Setup terrain.
-	// Bottom.
-	physics_static_body_create(32, 18, 32, 18, CL_TERRAIN);
-	physics_static_body_create(90, 10, 26, 10, CL_TERRAIN);
-	physics_static_body_create(WIDTH - 32, 18, 32, 18, CL_TERRAIN);
-	physics_static_body_create(WIDTH - 90, 10, 26, 10, CL_TERRAIN);
-	// Top.
-	physics_static_body_create(56, HEIGHT - 6.5f, 56, 6.5f, CL_TERRAIN);
-	physics_static_body_create(200, HEIGHT - 6.5f, 56, 6.5f, CL_TERRAIN);
-	// Left.
-	physics_static_body_create(6.5f, HEIGHT / 2, 6.5f, HEIGHT / 2, CL_TERRAIN);
-	// Right.
-	physics_static_body_create(WIDTH - 6.5f, HEIGHT / 2, 6.5f, HEIGHT / 2, CL_TERRAIN);
-	// Bottom platform.
-	physics_static_body_create(128, 70.5f, 64, 6.5f, CL_TERRAIN);
-	// Top platform.
-	physics_static_body_create(128, 166.5f, 64, 6.5f, CL_TERRAIN);
-	// Left platform.
-	physics_static_body_create(32, 118.5f, 32, 6.5f, CL_TERRAIN);
-	// Right platform.
-	physics_static_body_create(WIDTH - 32, 118.5f, 32, 6.5f, CL_TERRAIN);
-	// Top player-only collisions.
-	physics_static_body_create(128, HEIGHT - 6.5f, 16, 6.5f, CL_ENEMY);
+	{
+		f32 platform_half_height = 13.0 / 2.0;
+		f32 side_edge_half_width = 13.0  / 2.0;
+		f32 side_platform_half_width = 96.0 / 2.0;
+		f32 middle_platform_half_width = 192 / 2.0;
+		f32 top_edge_half_width = 176.0 / 2.0;
+		f32 bottom_big_half_width = 112.0 / 2.0;
+		f32 bottom_big_half_height = 36.0 / 2.0;
+		f32 bottom_small_half_width = 180.0 / 2.0;
+		f32 bottom_small_half_height = 20.0 / 2.0;
+
+		f32 side_platform_y = 107 + platform_half_height;
+		f32 middle_bottom_platform_y = 65 + platform_half_height;
+		f32 middle_top_platform_y = 155 + platform_half_height;
+		f32 middle_platform_x = 96 + middle_platform_half_width;
+
+		// Bottom.
+		physics_static_body_create(bottom_big_half_width, bottom_big_half_height, bottom_big_half_width, bottom_big_half_height, CL_TERRAIN);
+		physics_static_body_create(bottom_small_half_width, bottom_small_half_height, bottom_small_half_width, bottom_small_half_height, CL_TERRAIN);
+		physics_static_body_create(WIDTH - bottom_big_half_width, bottom_big_half_height, bottom_big_half_width, bottom_big_half_height, CL_TERRAIN);
+		physics_static_body_create(WIDTH - bottom_small_half_width, bottom_small_half_height, bottom_small_half_width, bottom_small_half_height, CL_TERRAIN);
+
+		// Top.
+		physics_static_body_create(top_edge_half_width, HEIGHT - platform_half_height, top_edge_half_width, platform_half_height, CL_TERRAIN);
+		physics_static_body_create(WIDTH - top_edge_half_width, HEIGHT - platform_half_height, top_edge_half_width, platform_half_height, CL_TERRAIN);
+
+		// Left.
+		physics_static_body_create(side_edge_half_width, HEIGHT / 2.0, side_edge_half_width, HEIGHT / 2.0, CL_TERRAIN);
+
+		// Right.
+		physics_static_body_create(WIDTH - side_edge_half_width, HEIGHT / 2.0, side_edge_half_width, HEIGHT / 2.0, CL_TERRAIN);
+
+		// Bottom platform.
+		physics_static_body_create(middle_platform_x, middle_bottom_platform_y, middle_platform_half_width, platform_half_height, CL_TERRAIN);
+
+		// Top platform.
+		physics_static_body_create(middle_platform_x, middle_top_platform_y, middle_platform_half_width, platform_half_height, CL_TERRAIN);
+
+		// Left platform.
+		physics_static_body_create(side_platform_half_width, side_platform_y, side_platform_half_width, platform_half_height, CL_TERRAIN);
+
+		// Right platform.
+		physics_static_body_create(WIDTH - side_platform_half_width, side_platform_y, side_platform_half_width, platform_half_height, CL_TERRAIN);
+
+		// Top player-only collisions.
+		physics_static_body_create(WIDTH / 2.0, HEIGHT - platform_half_height, 16, 6.5f, CL_ENEMY);
+	}
 
 	// Setup fire trigger.
-	Trigger *trigger = physics_trigger_create(128, 8, 12, 8);
+	Trigger *trigger = physics_trigger_create(WIDTH / 2.0, 8, 12, 8);
 	trigger->on_trigger = on_fire_trigger;
-
-	// Set up animations.
-	{
-	}
 
 	reset();
 
@@ -533,9 +554,9 @@ int main(void) {
 			f32 speed = 60;
 
 			if (rand() % 100 > 18) {
-				enemy_id = entity_create(ENEMY_SMALL_TEXTURE, 128, 224, 3, 3, 10, 7, -5, -3, CL_ENEMY);
+				enemy_id = entity_create(ENEMY_SMALL_TEXTURE, WIDTH / 2.0, HEIGHT, 3, 3, 10, 7, -5, -3, CL_ENEMY);
 			} else {
-				enemy_id = entity_create(ENEMY_LARGE_TEXTURE, 128, 224, 7, 7, 14, 14, -7, -7, CL_ENEMY);
+				enemy_id = entity_create(ENEMY_LARGE_TEXTURE, WIDTH / 2.0, HEIGHT, 7, 7, 14, 14, -7, -7, CL_ENEMY);
 				health = 7;
 				speed = 40;
 			}
@@ -553,7 +574,7 @@ int main(void) {
 		/////////////////////////////////////////////////////////////////////
 
 		// Clear screen, etc.
-		glClearColor(0.0, 0.0, 0.0, 1);
+		glClearColor(0.0, 0.7, 0.9, 1);
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		glUseProgram(render_state.shader);
@@ -667,7 +688,7 @@ int main(void) {
 
 		// Render spawn regions.
 		for (u32 i = 0; i < SPAWN_REGION_COUNT; ++i) {
-			f32 *spawn_region = BOX_SPAWN_REGIONS[i];
+			const f32 *spawn_region = &BOX_SPAWN_REGIONS[i];
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 			render_quad(spawn_region[0], spawn_region[1], spawn_region[2], spawn_region[3], (vec4){1, 1, 0.5, 0.1});
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);

@@ -32,6 +32,7 @@ Music from:
         - [ ] Large enemy
     - [ ] Sprite animation system
         - Probably use a simple FSM... Maybe link to entity system
+        - Or just use an explicit "entity.animation = x"
     - [ ] Resolution stuff
         - Currently just runs in windowed more in NES resolution
     - [ ] Invesigate why gcc isn't giving debug output
