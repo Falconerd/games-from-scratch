@@ -1,44 +1,11 @@
-flags = -Wall -pedantic -std=c99
-libs = -D_REENTRANT -pthread -lm -ldl -lSDL2 -lSDL2_mixer -lfreetype
-inc = -I./deps/include -I/usr/include/freetype2
+FLAGS = -g3 -O0 -std=c99
+INC = -I./deps/include -L./deps/lib
+FILES = src/main.c deps/src/glad.c src/render.c src/shared.c src/io.c src/audio.c src/input.c src/entity.c src/physics.c src/sprite.c
+ifeq ($(OS), Windows_NT)
+	LIBS = -D_REENTRANT -pthread -lm -lmingw32 -lSDL2 -lSDL2_mixer -mwindows -lfreetype
+else
+	LIBS = -D_REENTRANT -pthread -lm -ldl -lSDL2 -lSDL2_mixer -lfreetype
+endif
 
-build: main.o glad.o render.o shared.o io.o audio.o input.o entity.o physics.o sprite.o
-	clang -g3 -O0 $(flags) $(libs) $(inc) $^
-
-main.o: src/main.c
-	clang -c -g3 -O0 $(inc) $^
-
-glad.o: deps/src/glad.c
-	clang -c -g3 -O0 $(inc) $^
-
-render.o: src/render.c
-	clang -c -g3 -O0 $(inc) $^
-
-shared.o: src/shared.c
-	clang -c -g3 -O0 $(inc) $^
-
-io.o: src/io.c
-	clang -c -g3 -O0 $(inc) $^
-
-audio.o: src/audio.c
-	clang -c -g3 -O0 $(inc) $^
-
-input.o: src/input.c
-	clang -c -g3 -O0 $(inc) $^
-
-entity.o: src/entity.c
-	clang -c -g3 -O0 $(inc) $^
-
-physics.o: src/physics.c
-	clang -c -g3 -O0 $(inc) $^
-
-sprite.o: src/sprite.c
-	clang -c -g3 -O0 $(inc) $^
-
-run:
-	./a.out
-
-clean:
-	@rm -f ./a.out
-	@rm -f ./*.o
-	@rm -f ./*.obj
+build:
+	gcc $(FILES) $(FLAGS) $(LIBS) $(INC)

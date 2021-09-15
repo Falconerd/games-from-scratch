@@ -302,6 +302,11 @@ static void reset() {
 	Mix_VolumeMusic(MIX_MAX_VOLUME/2);
 }
 
+// Fix double main in Windows.
+#ifdef main
+#undef main
+#endif
+
 int main(void) {
 	srand(time(NULL));
 
