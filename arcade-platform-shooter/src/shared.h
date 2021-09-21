@@ -245,7 +245,7 @@ void audio_music_play(Mix_Music *music);
 void audio_setup();
 
 ////////////////////////////////////////////////////////////////////////
-// Animation.
+// Sprites.
 ////////////////////////////////////////////////////////////////////////
 
 typedef struct sprite_animation {
@@ -267,12 +267,12 @@ struct sprite_sheet {
 	u8 frame_height;
 };
 
-typedef struct animation_state {
+typedef struct sprite_state {
 	Sprite_Animation sprite_animation_array[MAX_SPRITE_ANIMATIONS];
 	u32 sprite_animation_array_count;
 	Sprite_Sheet sprite_sheet_array[MAX_SPRITE_SHEETS];
 	u32 sprite_sheet_array_count;
-} Animation_State;
+} Sprite_State;
 
 u32 sprite_sheet_create(Texture texture, f32 frame_width, f32 frame_height);
 u32 sprite_animation_create(u32 sprite_sheet_id, u8 length, u8 *row_coordinate_array, u8 *column_coordinate_array, f32 *frame_time_array, u8 does_loop);

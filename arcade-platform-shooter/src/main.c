@@ -63,7 +63,7 @@ extern Entity_State entity_state;
 extern Render_State render_state;
 extern Physics_State physics_state;
 extern Input_State input_state;
-extern Animation_State animation_state;
+extern Sprite_State sprite_state;
 
 ////////////////////////////////////////////////////////////////////////
 // Constants.
@@ -86,12 +86,14 @@ static const f32 BOX_SPAWN_REGIONS[] = {
 };
 static const u32 SPAWN_REGION_COUNT = 5;
 
-// Technically not constants, but we cannot initialise them here and
-// they never change after initialisation.
+// Technically not constants, but they never change after
+// initialisation.
 static Texture TERRAIN_TEXTURE;
 static Texture SPRITES_TEXTURE;
 
 static u32 SPRITE_SHEET;
+
+static u32 PLAYER_WALK_ANIM;
 
 static Mix_Music *TITLE_THEME;
 static Mix_Music *STAGE_1_THEME;
@@ -348,10 +350,14 @@ int main(void) {
 	// Setup sprite sheets.
 	// TODO: Move up
 	SPRITE_SHEET = sprite_sheet_create(SPRITES_TEXTURE, 16, 16);
-	u8 rows[] = {3, 3};
-	u8 cols[] = {0, 1};
-	f32 fts[] = {0.25f, 0.25f};
-	u32 PLAYER_WALK_ANIM = sprite_animation_create(SPRITE_SHEET, 2, rows, cols, fts, 1);
+	
+	// Setup animations.
+	{
+		u8 rows[] = {3, 3};
+		u8 cols[] = {0, 1};
+		f32 fts[] = {0.25f, 0.25f};
+		PLAYER_WALK_ANIM = sprite_animation_create(SPRITE_SHEET, 2, rows, cols, fts, 1);
+	}
 
 	// Setup player.
 	u32 player_id = entity_create(PLAYER_SPAWN_X, PLAYER_SPAWN_Y, 4, 4, 16, 10, -8, -4, CL_PLAYER);
@@ -599,9 +605,9 @@ int main(void) {
 			v3 position = {entity->aabb.position[0] + entity->sprite_offset[0],
 			               entity->aabb.position[1] + entity->sprite_offset[1], 0};
 
-	             	Sprite_Animation *sa = &animation_state.sprite_animation_array[entity->animation_id];
+	             	Sprite_Animation *sa = &sprite_state.sprite_animation_array[entity->animation_id];
 			render_sprite_sheet_frame(
-				animation_state.sprite_sheet_array[sa->sprite_sheet_id],
+				sprite_state.sprite_sheet_array[sa->sprite_sheet_id],
 				sa->row_coordinate_array[sa->current_frame],
 				sa->column_coordinate_array[sa->current_frame],
 				position,

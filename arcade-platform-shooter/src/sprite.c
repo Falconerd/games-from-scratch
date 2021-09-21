@@ -1,7 +1,7 @@
 #include "shared.h"
 
-Animation_State animation_state = {0};
-static Animation_State *state = &animation_state;
+Sprite_State sprite_state = {0};
+static Sprite_State *state = &sprite_state;
 
 // What exact data is required for playing a sprite animation??
 // - texture id
