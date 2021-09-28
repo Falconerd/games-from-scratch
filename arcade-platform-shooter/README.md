@@ -26,16 +26,16 @@ Music from:
     - [X] Text rendering using FreeType
     - [X] Simple input system
     - [X] Audio
-    - [ ] Draw animations
-        - [ ] Player
-        - [ ] Small enemy
-        - [ ] Large enemy
-    - [ ] Sprite animation system
+    - [X] Draw animations
+        - [X] Player
+        - [X] Small enemy
+        - [X] Large enemy
+    - [X] Sprite animation system
         - Probably use a simple FSM... Maybe link to entity system
-        - Or just use an explicit "entity.animation = x"
+        - [X] Or just use an explicit "entity.animation = x"
+    - [/] Draw the current weapon at the player position
     - [ ] Resolution stuff
-        - Currently just runs in windowed more in NES resolution
-    - [ ] Invesigate why gcc isn't giving debug output
-    - [ ] Profiler
-        - Would be nice to see FPS, frame time, etc?
-            - nsight, radeon profiler
+        - Currently just runs in windowed mode in 1080p 
+    - [X] Profiler
+        - [X] Would be nice to see FPS, frame time, etc?
+        - nsight, radeon profiler

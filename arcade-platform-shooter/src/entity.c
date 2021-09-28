@@ -7,8 +7,8 @@ void entity_setup() {
 	state->entity_array = calloc(MAX_ENTITIES, sizeof(Entity));
 }
 
-u32 entity_create(f32 x, f32 y, f32 collider_half_width, f32 collider_half_height,
-                  f32 sprite_width, f32 sprite_height, f32 sprite_offset_x, f32 sprite_offset_y, u32 layer_mask) {
+u32 entity_create(f32 x, f32 y, f32 collider_half_width, f32 collider_half_height, f32 sprite_width, f32 sprite_height,
+				  f32 sprite_offset_x, f32 sprite_offset_y, u32 layer_mask, u32 initial_animation_id) {
 	u32 index = MAX_ENTITIES;
 	for (u32 i = 0; i < MAX_ENTITIES; ++i) {
 		if (!state->entity_array[i].is_in_use) {
@@ -36,6 +36,7 @@ u32 entity_create(f32 x, f32 y, f32 collider_half_width, f32 collider_half_heigh
 	entity->sprite_offset[1] = sprite_offset_y;
 	entity->layer_mask = layer_mask;
 	entity->is_in_use = 1;
+	entity->animation_id = initial_animation_id;
 
 	++state->entity_array_count;
 

@@ -211,7 +211,7 @@ void render_setup() {
 	glUseProgram(state->circle_shader);
 	glUniformMatrix4fv(glGetUniformLocation(state->circle_shader, "projection"), 1, GL_FALSE, &state->projection[0][0]);
 
-	m4 text_projection;
+	mat4x4 text_projection;
 	mat4x4_identity(text_projection);
 	mat4x4_ortho(text_projection, 0, WIDTH * SCALE, 0, HEIGHT * SCALE, -2.0f, 2.0f);
 	glUseProgram(state->text_shader);
@@ -339,7 +339,7 @@ void render_text(const char *text, f32 x, f32 y, vec4 color, u8 is_centered) {
 }
 
 void render_circle(f32 x, f32 y, f32 radius, vec4 color) {
-	m4 model;
+	mat4x4 model;
 	mat4x4_identity(model);
 
 	mat4x4_translate(model, WIDTH / 2, HEIGHT / 2, 0.0f);
@@ -358,7 +358,7 @@ void render_circle(f32 x, f32 y, f32 radius, vec4 color) {
 }
 
 void render_quad(f32 x, f32 y, f32 width, f32 height, vec4 color) {
-	m4 model;
+	mat4x4 model;
 	mat4x4_identity(model);
 
 	mat4x4_translate(model, x + width * 0.5f, y + height * 0.5f, 0.0f);
@@ -373,7 +373,7 @@ void render_quad(f32 x, f32 y, f32 width, f32 height, vec4 color) {
 }
 
 void render_point(vec2 position, vec4 color) {
-	m4 model;
+	mat4x4 model;
 	mat4x4_identity(model);
 
 	mat4x4_translate(model, position[0], position[1], 0);
@@ -394,7 +394,7 @@ void render_segment(vec2 start, vec2 end, vec4 color) {
 	f32 x = end[0] - start[0];
 	f32 y = end[1] - start[1];
 	f32 line[6] = {0, 0, 0, x, y, 0};
-	m4 model;
+	mat4x4 model;
 	mat4x4_identity(model);
 
 	mat4x4_translate(model, start[0], start[1], 0);
@@ -460,7 +460,7 @@ void render_sprite(Texture texture, f32 size[2], vec3 position, f32 tex_coords[8
 	glBindBuffer(GL_ARRAY_BUFFER, state->quad_vbo);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof vertices, vertices);
 
-	m4 model;
+	mat4x4 model;
 	mat4x4_identity(model);
 
 	mat4x4_translate(model, position[0] + width * 0.5f, position[1] + height * 0.5f, 0.0f);
@@ -476,14 +476,13 @@ void render_sprite(Texture texture, f32 size[2], vec3 position, f32 tex_coords[8
 }
 
 void render_sprite_sheet_frame(Sprite_Sheet sprite_sheet, u8 row, u8 column, vec3 position, f32 rotation, vec4 color, u8 is_flipped) {
-	// Calculate texture coordinates.
 	f32 w = 1.0f / ((f32)sprite_sheet.texture.width / (f32)sprite_sheet.frame_width);
 	f32 h = 1.0f / ((f32)sprite_sheet.texture.height / (f32)sprite_sheet.frame_height);
 	f32 x = (f32)column * w;
 	f32 y = (f32)row * h;
 	f32 tex_coords[8] = {x + w, y + h, x + w, y, x, y, x, y + h};
 	f32 size_override[2] = {(f32)sprite_sheet.frame_width, (f32)sprite_sheet.frame_height};
-	// Render sprite.
+
 	render_sprite(sprite_sheet.texture, size_override, position, tex_coords, rotation, color, is_flipped);
 }
 

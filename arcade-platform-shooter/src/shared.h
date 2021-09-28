@@ -23,10 +23,6 @@
 #define f64 double
 #define i8 int8_t
 #define i32 int32_t
-#define m4 mat4x4
-#define v2 vec2
-#define v3 vec3
-#define v4 vec4
 
 ////////////////////////////////////////////////////////////////////////
 // Defines and flags.
@@ -41,6 +37,7 @@
 #define SCALE 6
 #define WIDTH 384
 #define HEIGHT 216
+#define FRAME_DELAY 1000.0 / 60.0
 
 #define GRAVITY -20
 #define TERMINAL_VELOCITY -200
@@ -48,9 +45,9 @@
 #define MAX_ENTITIES 256
 #define MAX_STATIC_BODIES 20
 #define MAX_TRIGGERS 10
-#define MAX_SPRITE_SHEETS 10
-#define MAX_SPRITE_ANIMATIONS 10
-#define MAX_SPRITE_ANIMATION_FRAMES 8
+#define MAX_SPRITE_SHEETS 1
+#define MAX_SPRITE_ANIMATIONS 20
+#define MAX_SPRITE_ANIMATION_FRAMES 3
 
 ////////////////////////////////////////////////////////////////////////
 // Shared functions.
@@ -99,7 +96,7 @@ typedef struct texture {
 struct render_state {
 	SDL_Window *window;
 	SDL_Renderer *renderer;
-	m4 projection;
+	mat4x4 projection;
 	u32 color_texture;
 	u32 shader;
 	u32 quad_vao;
@@ -210,7 +207,7 @@ struct entity_state {
 };
 
 void entity_setup();
-u32 entity_create(f32 x, f32 y, f32 collider_half_width, f32 collider_half_height, f32 sprite_width, f32 sprite_height, f32 sprite_offset_x, f32 sprite_offset_y, u32 layer_mask);
+u32 entity_create(f32 x, f32 y, f32 collider_half_width, f32 collider_half_height, f32 sprite_width, f32 sprite_height, f32 sprite_offset_x, f32 sprite_offset_y, u32 layer_mask, u32 initial_animation_id);
 void entity_destroy(u32 index);
 
 ////////////////////////////////////////////////////////////////////////

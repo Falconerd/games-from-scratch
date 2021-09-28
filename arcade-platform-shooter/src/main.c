@@ -37,10 +37,14 @@ typedef struct game_state {
 	// Used specifically for FPS calculation.
 	// Not the same as time_last_frame.
 	f32 previous_time;
+	// Time it took to calculate everything and render.
+	f32 frame_time;
 
 	f32 spawn_timer;
 
 	Weapon_Type weapon_type;
+	Sprite_Animation* weapon_anim;
+	f32 weapon_offset[2];
 	f32 shoot_timer;
 
 	vec2 rocket_explosion_position;
@@ -78,22 +82,33 @@ static const f32 EXPLOSION_RADIUS = 45;
 static const f32 EXPLOSION_TIME = 0.25f;
 static const f32 PLAYER_JUMP_VELOCITY = 400;
 static const f32 BOX_SPAWN_REGIONS[] = {
-	23, 173, 210, 38,
-	23, 125, 210, 35,
-	23, 77, 210, 35,
-	140, 36, 83, 28,
-	23, 36, 83, 28
+	24, 42, WIDTH - 42, HEIGHT - 84 
 };
-static const u32 SPAWN_REGION_COUNT = 5;
+static const u32 SPAWN_REGION_COUNT = 1;
 
-// Technically not constants, but they never change after
-// initialisation.
+// Technically not constants - they don't change after initialisation.
 static Texture TERRAIN_TEXTURE;
 static Texture SPRITES_TEXTURE;
 
 static u32 SPRITE_SHEET;
 
+static u32 PLAYER_IDLE_ANIM;
 static u32 PLAYER_WALK_ANIM;
+static u32 SMALL_ENEMY_WALK_ANIM;
+static u32 LARGE_ENEMY_WALK_ANIM;
+static u32 SMALL_ANGRY_ENEMY_WALK_ANIM;
+static u32 LARGE_ANGRY_ENEMY_WALK_ANIM;
+static u32 BULLET_IDLE_ANIM;
+static u32 BULLET_LARGE_IDLE_ANIM;
+static u32 ROCKET_IDLE_ANIM;
+static u32 BOX_IDLE_ANIM;
+static u32 PISTOL_IDLE_ANIM;
+static u32 SHOTGUN_IDLE_ANIM;
+static u32 MACHINE_GUN_IDLE_ANIM;
+static u32 ROCKET_LAUNCHER_IDLE_ANIM;
+static u32 REVOLVER_IDLE_ANIM;
+
+static u32 SMOKE_IDLE_ANIM;
 
 static Mix_Music *TITLE_THEME;
 static Mix_Music *STAGE_1_THEME;
@@ -113,31 +128,33 @@ static Mix_Chunk *BOX_SOUND;
 
 static void reset();
 static void spawn_box();
-/*
+
 static void on_fire_trigger(u32 self_id, u32 trigger_id, Hit hit) {
 	Entity *self = &entity_state.entity_array[self_id];
 	// Make sure entities which are falling off the screen don't
 	// trigger this.
 	if (self->time_to_live > 0)
 		return;
+
 	if (self_id == 0) {
 		reset();
 	} else {
 		self->aabb.position[0] = ENEMY_SPAWN_X;
 		self->aabb.position[1] = ENEMY_SPAWN_Y;
-		if (self->texture.id == ENEMY_SMALL_TEXTURE.id) {
-			self->texture = ENEMY_SMALL_ANGRY_TEXTURE;
+		
+		if (self->animation_id == SMALL_ENEMY_WALK_ANIM) {
+			self->animation_id = SMALL_ANGRY_ENEMY_WALK_ANIM;
 			self->velocity[0] *= 1.5f;
-		} else if (self->texture.id == ENEMY_LARGE_TEXTURE.id) {
-			self->texture = ENEMY_LARGE_ANGRY_TEXTURE;
+		} else if (self->animation_id == LARGE_ENEMY_WALK_ANIM) {
+			self->animation_id = LARGE_ANGRY_ENEMY_WALK_ANIM;
 			self->velocity[0] *= 1.5f;
 		}
 	}
 }
 
 static void on_player_collide(u32 self_id, u32 other_id, Hit hit) {
-	// audio_sound_play(PLAYER_DEATH_SOUND);
-	// reset();
+	audio_sound_play(PLAYER_DEATH_SOUND);
+	reset();
 }
 
 static void kill_enemy(u32 id) {
@@ -208,13 +225,13 @@ static void spawn_projectile(Projectile_Type type, f32 x, f32 y, f32 velocity_x,
 	u32 projectile_id;
 	switch (type) {
 	case PT_BULLET: {
-		projectile_id = entity_create(BULLET_SPRITE_SHEET, x, y, 1.5f, 1.5f, 3, 3, -1.5f, -1.5f, CL_BULLET);
+		projectile_id = entity_create(x, y, 1.5f, 1.5f, 3, 3, -1.5f, -1.5f, CL_BULLET, BULLET_IDLE_ANIM);
 	} break;
 	case PT_BULLET_LARGE: {
-		projectile_id = entity_create(LARGE_BULLET_SPRITE_SHEET, x, y, 2, 2, 4, 4, -2, -2, CL_BULLET);
+		projectile_id = entity_create(x, y, 2, 2, 4, 4, -2, -2, CL_BULLET, BULLET_LARGE_IDLE_ANIM);
 	} break;
 	case PT_ROCKET: {
-		projectile_id = entity_create(ROCKET_SPRITE_SHEET, x, y, 4, 2.5f, 8, 5, -4, -2.5f, CL_BULLET);
+		projectile_id = entity_create(x, y, 4, 2.5f, 8, 5, -4, -2.5f, CL_BULLET, ROCKET_IDLE_ANIM);
 		Entity *projectile = &entity_state.entity_array[projectile_id];
 		projectile->acceleration[0] = player->is_flipped ? -velocity_x * 0.05f : velocity_x * 0.05f;
 		projectile->desired_velocity[0] = player->is_flipped ? -velocity_x : velocity_x;
@@ -257,17 +274,21 @@ static void on_box_collide(u32 self_id, u32 other_id, Hit hit) {
 		state.weapon_type = new_weapon_type;
 		entity_destroy(self_id);
 
-		// TODO:
-		// switch (new_weapon_type) {
-		// case WT_SHOTGUN: player->texture = PLAYER_SHOTGUN_TEXTURE; break;
-		// case WT_MACHINE_GUN: player->texture = PLAYER_MACHINE_GUN_TEXTURE; break;
-		// case WT_ROCKET_LAUNCHER: player->texture = PLAYER_ROCKET_LAUNCHER_TEXTURE; break;
-		// case WT_PISTOL: player->texture = PLAYER_PISTOL_TEXTURE; break;
-		// case WT_REVOLVER: player->texture = PLAYER_REVOLVER_TEXTURE; break;
-		// case WT_COUNT: break;
-		// }
+		state.weapon_offset[0] = 0;
+		state.weapon_offset[1] = 0;
 
-		// player->texture = PLAYER_TEXTURE;
+		switch (new_weapon_type) {
+		case WT_SHOTGUN: {
+			state.weapon_anim = &sprite_state.sprite_animation_array[SHOTGUN_IDLE_ANIM];
+			state.weapon_offset[0] = -6;
+			state.weapon_offset[1] = -2;
+		} break;
+		case WT_MACHINE_GUN: state.weapon_anim = &sprite_state.sprite_animation_array[MACHINE_GUN_IDLE_ANIM]; break;
+		case WT_ROCKET_LAUNCHER: state.weapon_anim = &sprite_state.sprite_animation_array[ROCKET_LAUNCHER_IDLE_ANIM]; break;
+		case WT_PISTOL: state.weapon_anim = &sprite_state.sprite_animation_array[PISTOL_IDLE_ANIM]; break;
+		case WT_REVOLVER: state.weapon_anim = &sprite_state.sprite_animation_array[REVOLVER_IDLE_ANIM]; break;
+		case WT_COUNT: break;
+		}
 
 		++state.score;
 		sprintf(state.score_string, "%d", state.score);
@@ -281,27 +302,29 @@ static void spawn_box() {
 	const f32 *region = &BOX_SPAWN_REGIONS[rand() % SPAWN_REGION_COUNT];
 	f32 x = frandr(region[0], region[0] + region[2]);
 	f32 y = frandr(region[1], region[1] + region[3]);
-	u32 id = entity_create(BOX_TEXTURE, x, y, 4, 4, 8, 8, -4, -4, CL_BOX);
+	u32 id = entity_create(x, y, 4, 4, 8, 8, -4, -4, CL_BOX, BOX_IDLE_ANIM);
 	Entity *entity = &entity_state.entity_array[id];
 	entity->on_collide = on_box_collide;
 }
 
-*/
 static void reset() {
 	Entity *player = &entity_state.entity_array[0];
+
 	player->aabb.position[0] = PLAYER_SPAWN_X;
 	player->aabb.position[1] = PLAYER_SPAWN_Y;
 	player->velocity[0] = 0;
 	player->velocity[1] = 0;
+
 	memset(&entity_state.entity_array[1], 0, (MAX_ENTITIES - 1) * sizeof(Entity));
 	state.weapon_type = WT_PISTOL;
-	// TODO:
-	// player->texture = PLAYER_TEXTURE;
-	// spawn_box();
+
 	state.score = 0;
 	sprintf(state.score_string, "%d", state.score);
+
 	audio_music_play(STAGE_1_THEME);
 	Mix_VolumeMusic(MIX_MAX_VOLUME/2);
+
+	spawn_box();
 }
 
 // Fix double main in Windows.
@@ -348,22 +371,32 @@ int main(void) {
 	audio_music_load(&STAGE_1_THEME, "assets/stage_1_theme.mp3");
 
 	// Setup sprite sheets.
-	// TODO: Move up
 	SPRITE_SHEET = sprite_sheet_create(SPRITES_TEXTURE, 16, 16);
 	
 	// Setup animations.
-	{
-		u8 rows[] = {3, 3};
-		u8 cols[] = {0, 1};
-		f32 fts[] = {0.25f, 0.25f};
-		PLAYER_WALK_ANIM = sprite_animation_create(SPRITE_SHEET, 2, rows, cols, fts, 1);
-	}
+	PLAYER_WALK_ANIM = sprite_animation_create(SPRITE_SHEET, 2, (u8[]){3, 3}, (u8[]){0, 1}, (f32[]){0.15f, 0.15f}, 1);
+	PLAYER_IDLE_ANIM = sprite_animation_create(SPRITE_SHEET, 1, (u8[]){3}, (u8[]){0}, (f32[]){1}, 1);
+	SMALL_ENEMY_WALK_ANIM  = sprite_animation_create(SPRITE_SHEET, 2, (u8[]){2, 2}, (u8[]){0, 1}, (f32[]){0.1f, 0.1f}, 1);
+	SMALL_ANGRY_ENEMY_WALK_ANIM  = sprite_animation_create(SPRITE_SHEET, 2, (u8[]){2, 2}, (u8[]){2, 3}, (f32[]){0.1f, 0.1f}, 1);
+	LARGE_ENEMY_WALK_ANIM  = sprite_animation_create(SPRITE_SHEET, 3, (u8[]){2, 2, 2}, (u8[]){4, 5, 6}, (f32[]){0.15f, 0.15f, 0.15f}, 1);
+	LARGE_ANGRY_ENEMY_WALK_ANIM  = sprite_animation_create(SPRITE_SHEET, 3, (u8[]){2, 2, 2}, (u8[]){7, 8, 9}, (f32[]){0.15f, 0.15f, 0.15f}, 1);
+	BULLET_IDLE_ANIM = sprite_animation_create(SPRITE_SHEET, 1, (u8[]){1}, (u8[]){0}, (f32[]){1}, 1);
+	BULLET_LARGE_IDLE_ANIM = sprite_animation_create(SPRITE_SHEET, 1, (u8[]){1}, (u8[]){1}, (f32[]){1}, 1);
+	ROCKET_IDLE_ANIM = sprite_animation_create(SPRITE_SHEET, 1, (u8[]){1}, (u8[]){2}, (f32[]){1}, 1);
+	BOX_IDLE_ANIM = sprite_animation_create(SPRITE_SHEET, 1, (u8[]){0}, (u8[]){0}, (f32[]){1}, 1);
+	PISTOL_IDLE_ANIM = sprite_animation_create(SPRITE_SHEET, 1, (u8[]){1}, (u8[]){3}, (f32[]){1}, 1);
+	MACHINE_GUN_IDLE_ANIM = sprite_animation_create(SPRITE_SHEET, 1, (u8[]){1}, (u8[]){4}, (f32[]){1}, 1);
+	REVOLVER_IDLE_ANIM = sprite_animation_create(SPRITE_SHEET, 1, (u8[]){1}, (u8[]){5}, (f32[]){1}, 1);
+	ROCKET_LAUNCHER_IDLE_ANIM = sprite_animation_create(SPRITE_SHEET, 1, (u8[]){1}, (u8[]){6}, (f32[]){1}, 1);
+	SHOTGUN_IDLE_ANIM = sprite_animation_create(SPRITE_SHEET, 1, (u8[]){1}, (u8[]){7}, (f32[]){1}, 1);
+	SMOKE_IDLE_ANIM	= sprite_animation_create(SPRITE_SHEET, 1, (u8[]){0}, (u8[]){1}, (f32[]){1}, 1);
 
 	// Setup player.
-	u32 player_id = entity_create(PLAYER_SPAWN_X, PLAYER_SPAWN_Y, 4, 4, 16, 10, -8, -4, CL_PLAYER);
+	u32 player_id = entity_create(PLAYER_SPAWN_X, PLAYER_SPAWN_Y, 4, 4, 16, 10, -8, -4, CL_PLAYER, PLAYER_IDLE_ANIM);
 	Entity *player = &entity_state.entity_array[player_id];
-	player->animation_id = PLAYER_WALK_ANIM;
-	// player->on_collide = on_player_collide;
+	player->on_collide = on_player_collide;
+	
+	state.weapon_anim = &sprite_state.sprite_animation_array[PISTOL_IDLE_ANIM];
 
 	// Setup terrain.
 	{
@@ -421,12 +454,13 @@ int main(void) {
 	reset();
 
 	state.previous_time = (f32)SDL_GetTicks();
-
+	
 	while (!state.should_quit) {
 		state.time_now = (f32)SDL_GetTicks();
 		state.delta_time = (state.time_now - state.time_last_frame) / 1000;
 		state.time_last_frame = state.time_now;
 		state.frame_count++;
+
 		if (state.time_now - state.previous_time >= 1000.0f) {
 			state.frame_rate = state.frame_count;
 			state.frame_count = 0;
@@ -445,7 +479,6 @@ int main(void) {
 				break;
 			}
 		}
-/*
 
 		Entity *player = &entity_state.entity_array[0];
 
@@ -453,13 +486,13 @@ int main(void) {
 		f32 vertical_velocity = player->velocity[1];
 
 		state.weapon_kick -= 1000 * state.delta_time;
-*/
+
 		const u8 *keyboard_state = SDL_GetKeyboardState(NULL);
 
 		if (keyboard_state[SDL_SCANCODE_ESCAPE]) {
 			state.should_quit = 1;
 		}
-/*
+
 		if (keyboard_state[input_state.right]) {
 			horizontal_velocity += PLAYER_MOVEMENT_SPEED;
 			player->is_flipped = 0;
@@ -534,6 +567,16 @@ int main(void) {
 		player->velocity[1] = vertical_velocity;
 
 		/////////////////////////////////////////////////////////////////////
+		// Update animation.
+		/////////////////////////////////////////////////////////////////////
+		
+		if (horizontal_velocity == 0) {
+			player->animation_id = PLAYER_IDLE_ANIM;
+		} else {
+			player->animation_id = PLAYER_WALK_ANIM;
+		}
+		
+		/////////////////////////////////////////////////////////////////////
 		// Update state.
 		/////////////////////////////////////////////////////////////////////
 
@@ -549,9 +592,9 @@ int main(void) {
 			f32 speed = 60;
 
 			if (rand() % 100 > 18) {
-				enemy_id = entity_create(SPRITE_SHEET, WIDTH / 2.0, HEIGHT, 3, 3, 10, 7, -5, -3, CL_ENEMY);
+				enemy_id = entity_create(WIDTH / 2.0, HEIGHT, 3, 3, 10, 7, -5, -3, CL_ENEMY, SMALL_ENEMY_WALK_ANIM);
 			} else {
-				enemy_id = entity_create(SPRITE_SHEET, WIDTH / 2.0, HEIGHT, 7, 7, 14, 14, -7, -7, CL_ENEMY);
+				enemy_id = entity_create(WIDTH / 2.0, HEIGHT, 7, 7, 14, 14, -7, -7, CL_ENEMY, LARGE_ENEMY_WALK_ANIM);
 				health = 7;
 				speed = 40;
 			}
@@ -567,7 +610,7 @@ int main(void) {
 		/////////////////////////////////////////////////////////////////////
 		// Render.
 		/////////////////////////////////////////////////////////////////////
-*/
+
 		// Clear screen, etc.
 		glClearColor(0.0, 0.7, 0.9, 1);
 		glClear(GL_COLOR_BUFFER_BIT);
@@ -577,7 +620,6 @@ int main(void) {
 		// Render terrain.
 		// It's rendered before physics is updated as physics may have some debug rendering.
 		render_sprite(TERRAIN_TEXTURE, NULL, (vec3){0, 0, 0}, NULL, 0, (vec4){1, 1, 1, 1}, 0);
-/*
 		// Update physics.
 		physics_tick(state.delta_time, entity_state.entity_array);
 		physics_cleanup();
@@ -594,34 +636,66 @@ int main(void) {
 			state.rocket_explosion_timer -= state.delta_time;
 			rocket_damage(pct);
 		}
-*/
+
 		glUseProgram(render_state.shader);
+
 		for (u32 i = 0; i < MAX_ENTITIES; ++i) {
 			Entity *entity = &entity_state.entity_array[i];
 			if (!entity->is_in_use) {
 				continue;
 			}
 
-			v3 position = {entity->aabb.position[0] + entity->sprite_offset[0],
+			if (entity->time_to_live > 0) {
+				if (!entity->is_kinematic)
+					entity->rotation += state.delta_time * 10;
+				entity->time_to_live -= state.delta_time;
+				if (entity->time_to_live <= 0) {
+					entity_destroy(i);
+				}
+			}
+
+			// Update sprite color.
+			for (u32 j = 0; j < 4; ++j) {
+				entity->sprite_color[j] += entity->sprite_color_delta[j];
+				if (entity->sprite_color_delta[j] != 0 && fabs(entity->sprite_color[j]) < fabs(entity->desired_sprite_color[j])) {
+					entity->sprite_color[j] = entity->desired_sprite_color[j];
+				}
+			}
+
+			vec3 position = {entity->aabb.position[0] + entity->sprite_offset[0],
 			               entity->aabb.position[1] + entity->sprite_offset[1], 0};
 
-	             	Sprite_Animation *sa = &sprite_state.sprite_animation_array[entity->animation_id];
+			Sprite_Animation *sa = &sprite_state.sprite_animation_array[entity->animation_id];
 			render_sprite_sheet_frame(
 				sprite_state.sprite_sheet_array[sa->sprite_sheet_id],
 				sa->row_coordinate_array[sa->current_frame],
 				sa->column_coordinate_array[sa->current_frame],
 				position,
 				0,
-				(v4){1, 1, 1, 1},
+				(vec4){1, 1, 1, 1},
 				entity->is_flipped);
+
+
+			// Render entity colliders.
+#if DEBUG
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 			render_aabb(entity->aabb, (vec4){0, 1, 0, 1});
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-		}
+#endif
 
-		// Update animations.
-		sprite_animation_tick(state.delta_time);
-/*
+		}
+		
+		// Render player's gun.
+		render_sprite_sheet_frame(
+			sprite_state.sprite_sheet_array[state.weapon_anim->sprite_sheet_id],
+			state.weapon_anim->row_coordinate_array[0],
+			state.weapon_anim->column_coordinate_array[0],
+			// TODO
+			(f32[]){player->aabb.position[0] + (state.weapon_offset[0] * (player->is_flipped ? -1 : 1)), player->aabb.position[1] + state.weapon_offset[1]},
+			0,
+			(vec4){1, 1, 1, 1},
+			player->is_flipped
+		);
 
 		// Spawn rocket smoke.
 		if (state.rocket_id > 0) {
@@ -630,7 +704,7 @@ int main(void) {
 				state.rocket_smoke_timer -= state.delta_time;
 
 			if (rocket->is_in_use && state.rocket_smoke_timer < 0) {
-				u32 smoke_id = entity_create(SMOKE_TEXTURE, rocket->aabb.position[0], rocket->aabb.position[1], 0, 0, 10, 10, -5, -5, 5);
+				u32 smoke_id = entity_create(rocket->aabb.position[0], rocket->aabb.position[1], 0, 0, 10, 10, -5, -5, 5, SMOKE_IDLE_ANIM);
 				Entity *smoke = &entity_state.entity_array[smoke_id];
 				state.rocket_smoke_timer = 0.05f;
 				smoke->rotation = frandr(0, 2 * PI);
@@ -643,50 +717,8 @@ int main(void) {
 			}
 		}
 
-		// Update / render entities.
-		for (u32 i = 0; i < MAX_ENTITIES; ++i) {
-			Entity *entity = &entity_state.entity_array[i];
-			if (entity->is_in_use) {
-				if (entity->time_to_live > 0) {
-					if (!entity->is_kinematic)
-						entity->rotation += state.delta_time * 10;
-					entity->time_to_live -= state.delta_time;
-					if (entity->time_to_live <= 0) {
-						entity_destroy(i);
-					}
-				}
-
-				// Update sprite color.
-				for (u32 j = 0; j < 4; ++j) {
-					entity->sprite_color[j] += entity->sprite_color_delta[j];
-					if (entity->sprite_color_delta[j] != 0 && fabs(entity->sprite_color[j]) < fabs(entity->desired_sprite_color[j])) {
-						entity->sprite_color[j] = entity->desired_sprite_color[j];
-					}
-				}
-				vec3 position = {entity->aabb.position[0] + entity->sprite_offset[0],
-						 entity->aabb.position[1] + entity->sprite_offset[1], 0};
-				f32 uvs[] = {
-					1.0f, 1.0f,
-					1.0f, 0.0f,
-					0.5f, 0.0f,
-					0.5f, 1.0f
-				};
-				render_sprite(entity->sprite_sheet.texture, NULL, position, uvs, entity->rotation, entity->sprite_color, entity->is_flipped);
-
-#if DEBUG
-				// Render entity colliders.
-				glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-				render_aabb(entity->aabb, (vec4){0, 1, 0, 1});
-
-				render_quad(entity->aabb.position[0] - entity->sprite_size[0] * 0.5,
-				            entity->aabb.position[1] - entity->sprite_size[1] * 0.5,
-				            entity->sprite_size[0],
-				            entity->sprite_size[1],
-				            (vec4){1, 1, 0, 0.5});
-				glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-#endif
-			}
-		}
+		// Update animations.
+		sprite_animation_tick(state.delta_time);
 
 #if DEBUG
 		// Render terrain colliders.
@@ -705,9 +737,10 @@ int main(void) {
 
 		// Render spawn regions.
 		for (u32 i = 0; i < SPAWN_REGION_COUNT; ++i) {
+			printf("[%d] %d\n", i, SPAWN_REGION_COUNT);
 			const f32 *spawn_region = &BOX_SPAWN_REGIONS[i];
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-			render_quad(spawn_region[0], spawn_region[1], spawn_region[2], spawn_region[3], (vec4){1, 1, 0.5, 0.1});
+			render_quad(spawn_region[0], spawn_region[1], spawn_region[2], spawn_region[3], (vec4){1, 1, 0.5, 0.8});
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		}
 #endif
@@ -719,7 +752,13 @@ int main(void) {
 		sprintf(fps, "%u", state.frame_rate);
 		
 		render_text(fps, 20, 20, (vec4){1, 1, 1, 1}, 1);
-		*/
 		SDL_GL_SwapWindow(render_state.window);
+
+		// Handle capping to a set FPS.
+		state.frame_time = SDL_GetTicks() - state.time_now;
+		
+		if (FRAME_DELAY > state.frame_time) {
+			SDL_Delay(FRAME_DELAY - state.frame_time);
+		}
 	}
 }
