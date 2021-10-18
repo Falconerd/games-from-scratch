@@ -302,7 +302,7 @@ static void spawn_box() {
 	const f32 *region = &BOX_SPAWN_REGIONS[rand() % SPAWN_REGION_COUNT];
 	f32 x = frandr(region[0], region[0] + region[2]);
 	f32 y = frandr(region[1], region[1] + region[3]);
-	u32 id = entity_create(x, y, 4, 4, 8, 8, -4, -4, CL_BOX, BOX_IDLE_ANIM);
+	u32 id = entity_create(x, y, 4, 4, 8, 8, -8, -4, CL_BOX, BOX_IDLE_ANIM);
 	Entity *entity = &entity_state.entity_array[id];
 	entity->on_collide = on_box_collide;
 }
@@ -592,7 +592,7 @@ int main(void) {
 			f32 speed = 60;
 
 			if (rand() % 100 > 18) {
-				enemy_id = entity_create(WIDTH / 2.0, HEIGHT, 3, 3, 10, 7, -5, -3, CL_ENEMY, SMALL_ENEMY_WALK_ANIM);
+				enemy_id = entity_create(WIDTH / 2.0, HEIGHT, 3, 3, 10, 7, -8, -3, CL_ENEMY, SMALL_ENEMY_WALK_ANIM);
 			} else {
 				enemy_id = entity_create(WIDTH / 2.0, HEIGHT, 7, 7, 14, 14, -7, -7, CL_ENEMY, LARGE_ENEMY_WALK_ANIM);
 				health = 7;
