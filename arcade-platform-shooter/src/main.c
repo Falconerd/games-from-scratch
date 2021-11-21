@@ -44,7 +44,8 @@ typedef struct game_state {
 
 	Weapon_Type weapon_type;
 	Sprite_Animation* weapon_anim;
-	f32 weapon_offset[2];
+	// Vertical, Horizontal, Flipped Horizontal.
+	f32 weapon_offset[3];
 	f32 shoot_timer;
 
 	vec2 rocket_explosion_position;
@@ -75,8 +76,8 @@ extern Sprite_State sprite_state;
 
 static const f32 PLAYER_SPAWN_X = WIDTH / 2;
 static const f32 PLAYER_SPAWN_Y = 90;
-static const f32 ENEMY_SPAWN_X = 128;
-static const f32 ENEMY_SPAWN_Y = 224;
+static const f32 ENEMY_SPAWN_X = WIDTH / 2;
+static const f32 ENEMY_SPAWN_Y = HEIGHT;
 static const f32 PLAYER_MOVEMENT_SPEED = 100;
 static const f32 EXPLOSION_RADIUS = 45;
 static const f32 EXPLOSION_TIME = 0.25f;
@@ -276,17 +277,39 @@ static void on_box_collide(u32 self_id, u32 other_id, Hit hit) {
 
 		state.weapon_offset[0] = 0;
 		state.weapon_offset[1] = 0;
+		state.weapon_offset[2] = 0;
 
 		switch (new_weapon_type) {
 		case WT_SHOTGUN: {
 			state.weapon_anim = &sprite_state.sprite_animation_array[SHOTGUN_IDLE_ANIM];
-			state.weapon_offset[0] = -6;
-			state.weapon_offset[1] = -2;
+			state.weapon_offset[0] = -4;
+			state.weapon_offset[1] = -4;
+			state.weapon_offset[2] = -12;
 		} break;
-		case WT_MACHINE_GUN: state.weapon_anim = &sprite_state.sprite_animation_array[MACHINE_GUN_IDLE_ANIM]; break;
-		case WT_ROCKET_LAUNCHER: state.weapon_anim = &sprite_state.sprite_animation_array[ROCKET_LAUNCHER_IDLE_ANIM]; break;
-		case WT_PISTOL: state.weapon_anim = &sprite_state.sprite_animation_array[PISTOL_IDLE_ANIM]; break;
-		case WT_REVOLVER: state.weapon_anim = &sprite_state.sprite_animation_array[REVOLVER_IDLE_ANIM]; break;
+		case WT_MACHINE_GUN: {
+			state.weapon_anim = &sprite_state.sprite_animation_array[MACHINE_GUN_IDLE_ANIM];
+			state.weapon_offset[0] = -4;
+			state.weapon_offset[1] = -4;
+			state.weapon_offset[2] = -12;
+		} break;
+		case WT_ROCKET_LAUNCHER: {
+			state.weapon_anim = &sprite_state.sprite_animation_array[ROCKET_LAUNCHER_IDLE_ANIM];
+			state.weapon_offset[0] = -4;
+			state.weapon_offset[1] = -8;
+			state.weapon_offset[2] = -8;
+		} break;
+		case WT_PISTOL: {
+			state.weapon_anim = &sprite_state.sprite_animation_array[PISTOL_IDLE_ANIM];
+			state.weapon_offset[0] = -4;
+			state.weapon_offset[1] = -5;
+			state.weapon_offset[2] = -12;
+		} break;
+		case WT_REVOLVER: {
+			state.weapon_anim = &sprite_state.sprite_animation_array[REVOLVER_IDLE_ANIM];
+			state.weapon_offset[0] = -4;
+			state.weapon_offset[1] = -4;
+			state.weapon_offset[2] = -13;
+		} break;
 		case WT_COUNT: break;
 		}
 
@@ -308,6 +331,10 @@ static void spawn_box() {
 }
 
 static void reset() {
+	// Destroy all entities besides the player.
+	memset(&entity_state.entity_array[1], 0, (MAX_ENTITIES - 1) * sizeof(Entity));
+
+	// Reset the player.
 	Entity *player = &entity_state.entity_array[0];
 
 	player->aabb.position[0] = PLAYER_SPAWN_X;
@@ -315,8 +342,12 @@ static void reset() {
 	player->velocity[0] = 0;
 	player->velocity[1] = 0;
 
-	memset(&entity_state.entity_array[1], 0, (MAX_ENTITIES - 1) * sizeof(Entity));
+	// Reset state related to the player.
 	state.weapon_type = WT_PISTOL;
+	state.weapon_anim = &sprite_state.sprite_animation_array[PISTOL_IDLE_ANIM];
+	state.weapon_offset[0] = -4;
+	state.weapon_offset[1] = -5;
+	state.weapon_offset[2] = -12;
 
 	state.score = 0;
 	sprintf(state.score_string, "%d", state.score);
@@ -395,8 +426,6 @@ int main(void) {
 	u32 player_id = entity_create(PLAYER_SPAWN_X, PLAYER_SPAWN_Y, 4, 4, 16, 10, -8, -4, CL_PLAYER, PLAYER_IDLE_ANIM);
 	Entity *player = &entity_state.entity_array[player_id];
 	player->on_collide = on_player_collide;
-	
-	state.weapon_anim = &sprite_state.sprite_animation_array[PISTOL_IDLE_ANIM];
 
 	// Setup terrain.
 	{
@@ -449,7 +478,7 @@ int main(void) {
 
 	// Setup fire trigger.
 	Trigger *trigger = physics_trigger_create(WIDTH / 2.0, 8, 12, 8);
-	// trigger->on_trigger = on_fire_trigger;
+	trigger->on_trigger = on_fire_trigger;
 
 	reset();
 
@@ -671,8 +700,8 @@ int main(void) {
 				sa->row_coordinate_array[sa->current_frame],
 				sa->column_coordinate_array[sa->current_frame],
 				position,
-				0,
-				(vec4){1, 1, 1, 1},
+				entity->rotation,
+				entity->sprite_color,
 				entity->is_flipped);
 
 
@@ -690,8 +719,7 @@ int main(void) {
 			sprite_state.sprite_sheet_array[state.weapon_anim->sprite_sheet_id],
 			state.weapon_anim->row_coordinate_array[0],
 			state.weapon_anim->column_coordinate_array[0],
-			// TODO
-			(f32[]){player->aabb.position[0] + (state.weapon_offset[0] * (player->is_flipped ? -1 : 1)), player->aabb.position[1] + state.weapon_offset[1]},
+			(f32[]){player->aabb.position[0] + (player->is_flipped ? state.weapon_offset[2] : state.weapon_offset[1]), player->aabb.position[1] + state.weapon_offset[0]},
 			0,
 			(vec4){1, 1, 1, 1},
 			player->is_flipped
@@ -746,12 +774,14 @@ int main(void) {
 #endif
 
 		glUseProgram(render_state.text_shader);
-		render_text(state.score_string, 128, 194, (vec4){1, 1, 1, 1}, 1);
+		render_text(state.score_string, WIDTH / 2, HEIGHT - 20, (vec4){1, 1, 1, 1}, 1);
 
+#if DEBUG
 		char fps[6] = {0};
 		sprintf(fps, "%u", state.frame_rate);
-		
 		render_text(fps, 20, 20, (vec4){1, 1, 1, 1}, 1);
+#endif
+
 		SDL_GL_SwapWindow(render_state.window);
 
 		// Handle capping to a set FPS.
