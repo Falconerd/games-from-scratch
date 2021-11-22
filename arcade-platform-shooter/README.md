@@ -40,10 +40,14 @@ Music from:
         - [X] Would be nice to see FPS, frame time, etc?
         - nsight, radeon profiler
 
-    1. [/] Entities are currently misaligned with their hit boxes.
-    2. [ ] Weapons are not showing up with the correct offset (they have been
-       moved to a separate sprite from the player).
-    3. [ ] The player has no idle animation.
-    4. [ ] The enemies are currently not displaying as their "angry" version,
-       though it seems their speed is increased when respawning.
-    5. [ ] Score text is off-centre.
+video order
+
+install + get window running with SDL2
+io
+sprites
+animations
+entities
+physics
+audio
+text
+polish
