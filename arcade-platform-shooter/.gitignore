@@ -1,5 +1,5 @@
 *.o
 *.obj
-a.out
+a.out*
 a.exe
 .vscode/

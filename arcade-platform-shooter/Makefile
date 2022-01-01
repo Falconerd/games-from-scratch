@@ -1,4 +1,5 @@
-INCLUDE = -I./deps/include -lSDL2
+INCLUDE = -I./deps/include
+LIBS = -lSDL2
 
 build: src/main.c deps/src/glad.c
-	gcc $(INCLUDE) $^
+	gcc $(INCLUDE) $(LIBS) $^
