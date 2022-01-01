@@ -1,4 +1,0 @@
-left = 21
-right = 23
-jump = 9
-shoot = 8
