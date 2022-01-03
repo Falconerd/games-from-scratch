@@ -1,35 +1,17 @@
-#include <stdio.h>
 #include <glad/glad.h>
-#include <SDL2/SDL.h>
+#include <stdio.h>
+#include "state.h"
+#include "render/render.h"
+
+#define WIDTH 800
+#define HEIGHT 600
 
 int main(void) {
-    printf("Hello there!");
+    State state = {0};
 
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        printf("Could not init SDL\n");
-        exit(1);
-    }
+    render_init(&state.window, WIDTH, HEIGHT);
 
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-
-    SDL_Window *window = SDL_CreateWindow("Test", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 600, SDL_WINDOW_OPENGL);
-    if (!window) {
-        printf("Failed to init window: %s\n", SDL_GetError());
-        exit(1);
-    }
-
-    SDL_GL_CreateContext(window);
-    if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
-        printf("Failed to init GLAD\n");
-        exit(1);
-    }
-
-    printf("OpenGL Loaded\n");
-    printf("Vendor:   %s\n", glGetString(GL_VENDOR));
-    printf("Renderer: %s\n", glGetString(GL_RENDERER));
-    printf("Version:  %s\n", glGetString(GL_VERSION));
+    printf("Hello there!\n");
 
     SDL_Event e;
     int quit = 0;
@@ -40,6 +22,13 @@ int main(void) {
                 quit = 1;
             }
         }
+
+        glClearColor(0, 0.7, 0.9, 1);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        render_quad((float[]){0, 0}, (float[]){100, 100}, (float[]){1, 1, 1, 1});
+
+        SDL_GL_SwapWindow(state.window);
     }
 
     return 0;
