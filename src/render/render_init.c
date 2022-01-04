@@ -1,7 +1,7 @@
 #include <glad/glad.h>
 #include "render_internal.h"
 
-void render_init_window(SDL_Window **window, float width, float height) {
+SDL_Window *render_init_window(float width, float height) {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         printf("Could not init SDL\n");
         exit(1);
@@ -11,15 +11,17 @@ void render_init_window(SDL_Window **window, float width, float height) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 
-    *window = SDL_CreateWindow("Test", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_OPENGL);
-    if (!*window) {
+    SDL_Window *window = SDL_CreateWindow("Test", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_OPENGL);
+    if (!window) {
         printf("Failed to init window: %s\n", SDL_GetError());
         exit(1);
     }
+
+    return window;
 }
 
-void render_init_context(SDL_Window **window) {
-    SDL_GL_CreateContext(*window);
+void render_init_context(SDL_Window *window) {
+    SDL_GL_CreateContext(window);
     if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
         printf("Failed to init GLAD\n");
         exit(1);

@@ -1,17 +1,10 @@
-#include <glad/glad.h>
+#include <glad/glad.h>  
+#include <SDL2/SDL.h>
 #include <stdio.h>
-#include "state.h"
 #include "render/render.h"
 
-#define WIDTH 800
-#define HEIGHT 600
-
 int main(void) {
-    State state = {0};
-
-    render_init(&state.window, WIDTH, HEIGHT);
-
-    printf("Hello there!\n");
+    SDL_Window *window = render_init(800, 600);
 
     SDL_Event e;
     int quit = 0;
@@ -28,7 +21,7 @@ int main(void) {
 
         render_quad((float[]){0, 0}, (float[]){100, 100}, (float[]){1, 1, 1, 1});
 
-        SDL_GL_SwapWindow(state.window);
+        SDL_GL_SwapWindow(window);
     }
 
     return 0;

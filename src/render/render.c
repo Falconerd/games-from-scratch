@@ -8,12 +8,15 @@ static mat4x4 projection;
 static uint32_t quad_vao, quad_vbo, quad_ebo;
 static uint32_t color_texture;
 
-void render_init(SDL_Window **window, float width, float height) {
-    render_init_window(window, width, height);
+SDL_Window *render_init(float width, float height) {
+    SDL_Window *window = render_init_window(width, height);
+
     render_init_context(window);
     render_init_shaders(&default_shader, &text_shader, &circle_shader, projection, width, height);
     render_init_color_texture(&color_texture);
     render_init_quad(&quad_vao, &quad_vbo, &quad_ebo);
+
+    return window;
 }
 
 void render_quad(vec2 pos, vec2 size, vec4 color) {

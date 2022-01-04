@@ -4,8 +4,8 @@
 #include <SDL2/SDL.h>
 #include "../../deps/lib/linmath.h"
 
-void render_init_window(SDL_Window **window, float width, float height);
-void render_init_context(SDL_Window **window);
+SDL_Window *render_init_window(float width, float height);
+void render_init_context(SDL_Window *window);
 void render_init_shaders(uint32_t *default_shader, uint32_t *text_shader, uint32_t *circle_shader, mat4x4 projection, float width, float height);
 void render_init_quad();
 
