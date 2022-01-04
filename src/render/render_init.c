@@ -68,7 +68,7 @@ void render_init_quad(uint32_t *quad_vao, uint32_t *quad_vbo, uint32_t *quad_ebo
 
     glBindVertexArray(*quad_vao);
     {
-        glBindBuffer(GL_ARRAY_BUFFER, *quad_vao);
+        glBindBuffer(GL_ARRAY_BUFFER, *quad_vbo);
         glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *quad_ebo);
