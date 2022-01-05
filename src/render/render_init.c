@@ -33,10 +33,8 @@ void render_init_context(SDL_Window *window) {
     printf("Version:  %s\n", glGetString(GL_VERSION));
 }
 
-void render_init_shaders(uint32_t *default_shader, uint32_t *text_shader, uint32_t *circle_shader, mat4x4 projection, float width, float height) {
+void render_init_shaders(uint32_t *default_shader, mat4x4 projection, float width, float height) {
     *default_shader = render_shader_create("./shaders/default.vert", "./shaders/default.frag");
-    // *text_shader = render_shader_create("./shaders/text.vert", "./shaders/text.frag");
-    // *circle_shader = render_shader_create("./shaders/circle.vert", "./shaders/circle.frag");
 
     mat4x4_ortho(projection, 0, width, 0, height, -2.0f, 2.0f);
 
@@ -46,8 +44,11 @@ void render_init_shaders(uint32_t *default_shader, uint32_t *text_shader, uint32
 
 void render_init_color_texture(uint32_t *color_texture) {
     glGenTextures(1, color_texture);
-    render_texture_setup(*color_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, (uint8_t[4]){255, 255, 255, 255});
+    glBindTexture(GL_TEXTURE_2D, *color_texture);
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, (uint8_t[4]){255, 255, 255, 255});
+    }
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 void render_init_quad(uint32_t *quad_vao, uint32_t *quad_vbo, uint32_t *quad_ebo) {
@@ -79,8 +80,6 @@ void render_init_quad(uint32_t *quad_vao, uint32_t *quad_vbo, uint32_t *quad_ebo
 
         glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
         glEnableVertexAttribArray(1);
-
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
     glBindVertexArray(0);
 }
