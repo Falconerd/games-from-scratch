@@ -35,10 +35,10 @@ int main(void) {
             ++quad_movement;
         }
 
+        vec2_add(quad_position, quad_position, (float[]){quad_movement, 0});
+
         glClearColor(0, 0.7, 0.9, 1);
         glClear(GL_COLOR_BUFFER_BIT);
-
-        vec2_add(quad_position, quad_position, (float[]){quad_movement, 0});
 
         render_quad(quad_position, (float[]){100, 100}, (float[]){1, 0, 0.5f, 1});
 

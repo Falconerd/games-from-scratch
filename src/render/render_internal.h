@@ -2,7 +2,7 @@
 #define RENDER_INTERNAL_H
 
 #include <SDL2/SDL.h>
-#include "../../deps/lib/linmath.h"
+#include <linmath.h>
 
 SDL_Window *render_init_window(float width, float height);
 void render_init_context(SDL_Window *window);
