@@ -4,8 +4,9 @@
 static Config config = {0};
 
 Config *config_init() {
-    if (config_load(&config) != 0) {
-        config_create_default(&config);
+    if (config_init_load(&config) != 0) {
+        config_init_create_default(&config);
+        config_init();
     }
 
     return &config;

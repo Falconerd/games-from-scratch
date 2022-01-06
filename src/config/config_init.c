@@ -2,6 +2,7 @@
 #include "../io/io.h"
 #include "config.h"
 #include "config_internal.h"
+#include "../input/input.h"
 
 static void config_get_value(char *result, char *string) {
     char *start = NULL;
@@ -26,8 +27,8 @@ static void config_get_value(char *result, char *string) {
     result[nbytes] = 0;
 }
 
-int config_load(Config *config) {
-    const char *config_buffer = io_file_read("./config.ini");
+int config_init_load(Config *config) {
+    char *config_buffer = io_file_read("./config.ini");
 
     if (!config_buffer) {
         return 1;
@@ -39,14 +40,28 @@ int config_load(Config *config) {
     char *shoot = strstr(config_buffer, "shoot");
 
     char buffer[10] = {0};
+
     config_get_value(buffer, left);
-    printf("left: %s\n", buffer);
+    input_key_bind(INPUT_KEY_LEFT, buffer);
+
     config_get_value(buffer, right);
-    printf("right: %s\n", buffer);
+    input_key_bind(INPUT_KEY_RIGHT, buffer);
+
     config_get_value(buffer, jump);
-    printf("jump: %s\n", buffer);
+    input_key_bind(INPUT_KEY_JUMP, buffer);
+
     config_get_value(buffer, shoot);
-    printf("shoot: %s\n", buffer);
+    input_key_bind(INPUT_KEY_SHOOT, buffer);
+
+    return 0;
 }
 
-void config_create_default(Config *config) {}
+void config_init_create_default(Config *config) {
+    char *default_config_file = "[controls]\n"
+        "left = A\n"
+        "right = D\n"
+        "jump = Space\n"
+        "shoot = H\n";
+    
+    io_file_write(default_config_file, strlen(default_config_file), "./config.ini");
+}
