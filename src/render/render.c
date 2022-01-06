@@ -1,6 +1,6 @@
 #include <glad/glad.h>
 #include <SDL2/SDL.h>
-#include "../../deps/lib/linmath.h"
+#include <linmath.h>
 #include "render_internal.h"
 
 static uint32_t default_shader;
