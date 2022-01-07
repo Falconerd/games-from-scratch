@@ -15,7 +15,7 @@ typedef struct input_state {
     uint8_t right;
 } Input_State;
 
-void input_update(Input_State *input_state);
-void input_key_bind(Input_Key key, const char *key_name);
+Input_State *input_init(void);
+void input_update(uint8_t *keybinds);
 
 #endif

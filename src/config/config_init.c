@@ -27,7 +27,7 @@ static void config_get_value(char *result, char *string) {
     result[nbytes] = 0;
 }
 
-int config_init_load(Config *config) {
+int config_init_load(Config_State *config_state) {
     char *config_buffer = io_file_read("./config.ini");
 
     if (!config_buffer) {
@@ -42,21 +42,21 @@ int config_init_load(Config *config) {
     char buffer[10] = {0};
 
     config_get_value(buffer, left);
-    input_key_bind(INPUT_KEY_LEFT, buffer);
+    config_key_bind(INPUT_KEY_LEFT, buffer);
 
     config_get_value(buffer, right);
-    input_key_bind(INPUT_KEY_RIGHT, buffer);
+    config_key_bind(INPUT_KEY_RIGHT, buffer);
 
     config_get_value(buffer, jump);
-    input_key_bind(INPUT_KEY_JUMP, buffer);
+    config_key_bind(INPUT_KEY_JUMP, buffer);
 
     config_get_value(buffer, shoot);
-    input_key_bind(INPUT_KEY_SHOOT, buffer);
+    config_key_bind(INPUT_KEY_SHOOT, buffer);
 
     return 0;
 }
 
-void config_init_create_default(Config *config) {
+void config_init_create_default(void) {
     char *default_config_file = "[controls]\n"
         "left = A\n"
         "right = D\n"

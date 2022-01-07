@@ -2,14 +2,13 @@
 #define CONFIG_H
 
 #include <stdlib.h>
+#include "../input/input.h"
 
-typedef struct config {
-    uint32_t key_left;
-    uint32_t key_right;
-    uint32_t key_jump;
-    uint32_t key_shoot;
-} Config;
+typedef struct config_state {
+    uint8_t keybinds[4];
+} Config_State;
 
-Config *config_init();
+Config_State *config_init(void);
+void config_key_bind(Input_Key key, const char *key_name);
 
 #endif

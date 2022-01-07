@@ -5,12 +5,11 @@
 #include "input/input.h"
 #include "config/config.h"
 
-static Input_State input_state = {0};
-
 static vec2 quad_position = {0};
 
 int main(void) {
-    Config *config = config_init();
+    Config_State *config_state = config_init();
+    Input_State *input_state = input_init();
     SDL_Window *window = render_init(800, 600);
 
     SDL_Event e;
@@ -23,15 +22,15 @@ int main(void) {
             }
         }
 
-        input_update(&input_state);
+        input_update(config_state->keybinds);
 
         float quad_movement = 0;
 
-        if (input_state.left) {
+        if (input_state->left) {
             --quad_movement;
         }
 
-        if (input_state.right) {
+        if (input_state->right) {
             ++quad_movement;
         }
 
