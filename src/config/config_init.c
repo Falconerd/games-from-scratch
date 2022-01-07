@@ -13,8 +13,9 @@ static char *config_get_value(char *string) {
     }
     *curr = 0;
 
-    char *key = strtok(line, " = ");
-    char *value = strtok(NULL, " = "); 
+    char *delimeter = strstr(line, "= ") ? "= " : "=";
+    strtok(line, delimeter);
+    char *value = strtok(NULL, delimeter);
 
     return value;
 }
