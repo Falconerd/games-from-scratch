@@ -37,12 +37,12 @@ int io_file_write(void *buffer, size_t size, const char *path) {
         return 1;
     }
 
-    size_t result = fwrite(buffer, size, 1, fp);
+    size_t chunks_written = fwrite(buffer, size, 1, fp);
 
     fclose(fp);
 
-    if (result != 1) {
-        printf("Incorrect chunks written. Expected 1, got %zu.\n", result);
+    if (chunks_written != 1) {
+        printf("Incorrect chunks written. Expected 1, got %zu.\n", chunks_written);
         return 1;
     }
 
