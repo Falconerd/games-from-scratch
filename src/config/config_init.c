@@ -4,32 +4,23 @@
 #include "config_internal.h"
 #include "../input/input.h"
 
-static void config_get_value(char *result, char *string) {
-    char *start = NULL;
-    size_t nbytes = 0;
-    char *curr = string;
+static char *config_get_value(char *string) {
+    char *line = strdup(string);
+    char *curr = line;
 
-    while (*curr != '\n' && *curr != '\r') {
-        if (*curr == '=') {
-            curr += 2;
-            start = curr;
-            continue;
-        }
-
-        if (start) {
-            ++nbytes;
-        }
-
+    while (*curr != '\n' && *curr != 0) {
         ++curr;
     }
+    *curr = 0;
 
-    memcpy(result, start, nbytes);
-    result[nbytes] = 0;
+    char *key = strtok(line, " = ");
+    char *value = strtok(NULL, " = "); 
+
+    return value;
 }
 
 int config_init_load(Config_State *config_state) {
     char *config_buffer = io_file_read("./config.ini");
-
     if (!config_buffer) {
         return 1;
     }
@@ -39,19 +30,10 @@ int config_init_load(Config_State *config_state) {
     char *jump = strstr(config_buffer, "jump");
     char *shoot = strstr(config_buffer, "shoot");
 
-    char buffer[10] = {0};
-
-    config_get_value(buffer, left);
-    config_key_bind(INPUT_KEY_LEFT, buffer);
-
-    config_get_value(buffer, right);
-    config_key_bind(INPUT_KEY_RIGHT, buffer);
-
-    config_get_value(buffer, jump);
-    config_key_bind(INPUT_KEY_JUMP, buffer);
-
-    config_get_value(buffer, shoot);
-    config_key_bind(INPUT_KEY_SHOOT, buffer);
+    config_key_bind(INPUT_KEY_LEFT, config_get_value(left));
+    config_key_bind(INPUT_KEY_RIGHT, config_get_value(right));
+    config_key_bind(INPUT_KEY_JUMP, config_get_value(jump));
+    config_key_bind(INPUT_KEY_SHOOT, config_get_value(shoot));
 
     return 0;
 }
