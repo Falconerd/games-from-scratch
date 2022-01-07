@@ -7,7 +7,7 @@ static Config_State config_state = {0};
 
 Config_State *config_init(void) {
     if (config_init_load(&config_state) != 0) {
-        config_init_create_default(&config_state);
+        config_init_create_default();
         config_init();
     }
 
