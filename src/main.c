@@ -19,7 +19,7 @@ int main(void) {
         glClearColor(0, 0.7, 0.9, 1);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        render_quad((float[]){100, 100}, (float[]){100, 100}, (float[]){1, 0, 0.5f, 1});
+        render_quad((vec2){100, 100}, (vec2){100, 100}, (vec2){1, 0, 0.5f, 1});
 
         SDL_GL_SwapWindow(window);
     }
