@@ -66,8 +66,6 @@ void physics_body_collide_body(Physics_State *physics_state, uint32_t index) {
 void physics_body_collide_static(Physics_State *physics_state, uint32_t index) {
     Body *self = &physics_state->bodies[index];
 
-    uint8_t was_hit = 0;
-
     for (uint32_t i = 0; i <= physics_state->static_body_max; ++i) {
         if (!physics_state->static_body_active[i]) {
             continue;
@@ -88,8 +86,6 @@ void physics_body_collide_static(Physics_State *physics_state, uint32_t index) {
             if (hit->normal[1] == -1) {
                 self->velocity[1] = 0;
             }
-
-            was_hit = 1;
 
             if (self->on_collide_static) {
                 self->on_collide_static(index, i, *hit);
