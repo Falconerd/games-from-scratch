@@ -11,7 +11,7 @@ char *io_file_read(const char *path) {
 
     fseek(fp, 0, SEEK_END);
 
-    int length = ftell(fp);
+    size_t length = ftell(fp);
 
     fseek(fp, 0, SEEK_SET);
 

@@ -16,6 +16,9 @@ SDL_Window *render_init(float width, float height) {
     render_init_quad(&quad_vao, &quad_vbo, &quad_ebo);
     render_init_color_texture(&color_texture);
 
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_BLEND);
+
     return window;
 }
 
@@ -35,4 +38,18 @@ void render_quad(vec2 pos, vec2 size, vec4 color) {
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL);
     }
     glBindVertexArray(0);
+}
+
+void render_aabb(void *aabb, vec4 color) {
+    float *pos = (float*)aabb;
+    float *size = pos+2;
+    vec2 q;
+    vec2 r;
+
+    vec2_sub(q, pos, size);
+    vec2_scale(r, size, 2.f);
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    render_quad(q, r, color);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 }

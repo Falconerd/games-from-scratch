@@ -1,3 +1,6 @@
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnewline-eof"
+
 #ifndef LINMATH_H
 #define LINMATH_H
 
@@ -613,3 +616,5 @@ LINMATH_H_FUNC void mat4x4_arcball(mat4x4 R, mat4x4 M, vec2 _a, vec2 _b, float s
 	mat4x4_rotate(R, M, c_[0], c_[1], c_[2], angle);
 }
 #endif
+
+#pragma GCC diagnostic pop

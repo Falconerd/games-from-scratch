@@ -20,7 +20,7 @@ static char *config_get_value(char *string) {
     return value;
 }
 
-int config_init_load(Config_State *config_state) {
+int config_init_load() {
     char *config_buffer = io_file_read("./config.ini");
     if (!config_buffer) {
         return 1;
