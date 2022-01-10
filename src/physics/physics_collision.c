@@ -79,7 +79,6 @@ void physics_body_collide_static(Physics_State *physics_state, uint32_t index) {
 
         if (hit) {
             vec2_add(self->aabb.position, self->aabb.position, hit->delta);
-            printf("Hit! %f %f\n", hit->position[0], hit->position[1]);
             render_quad(hit->position, (vec2){2.f, 2.f}, (vec4){1, 1, 1, 1});
 
             if (hit->normal[0] == 0 && hit->normal[1] == 1) {
@@ -87,7 +86,6 @@ void physics_body_collide_static(Physics_State *physics_state, uint32_t index) {
             }
 
             if (hit->normal[1] == -1) {
-                // self->is_grounded = 1;
                 self->velocity[1] = 0;
             }
 
@@ -98,8 +96,4 @@ void physics_body_collide_static(Physics_State *physics_state, uint32_t index) {
             }
         }
     }
-
-    // if (!was_hit) {
-    //     self->is_grounded = 0;
-    // }
 }
