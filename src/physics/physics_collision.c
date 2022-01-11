@@ -11,7 +11,7 @@ void physics_collision_init(void) {
     hits = calloc(MAX_BODIES * MAX_BODIES, sizeof(*hits));
 }
 
-Hit *aabb_intersect_aabb(AABB self, AABB other) {
+static Hit *aabb_intersect_aabb(AABB self, AABB other) {
     Hit *hit = &hits[next_hit_index++];
 
     float dx = self.position[0] - other.position[0];
@@ -51,7 +51,7 @@ Hit *aabb_intersect_aabb(AABB self, AABB other) {
     return hit;
 }
 
-void physics_body_collide_body(Physics_State *physics_state, uint32_t index) {
+void physics_collision_body_body(Physics_State *physics_state, uint32_t index) {
     Body *self = &physics_state->bodies[index];
 
     for (uint32_t i = 0; i <= physics_state->body_max; ++i) {
@@ -68,7 +68,7 @@ void physics_body_collide_body(Physics_State *physics_state, uint32_t index) {
     }
 }
 
-void physics_body_collide_static(Physics_State *physics_state, uint32_t index) {
+void physics_collision_body_static(Physics_State *physics_state, uint32_t index) {
     Body *self = &physics_state->bodies[index];
 
     for (uint32_t i = 0; i <= physics_state->static_body_max; ++i) {
@@ -96,4 +96,9 @@ void physics_body_collide_static(Physics_State *physics_state, uint32_t index) {
             }
         }
     }
+}
+
+void physics_collision_cleanup(void) {
+    memset(hits, 0, next_hit_index * sizeof(*hits));
+    next_hit_index = 0;
 }

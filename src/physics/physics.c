@@ -106,11 +106,13 @@ void physics_update(float delta_time) {
             continue;
         }
 
-        physics_body_collide_body(&physics_state, i);
+        physics_collision_body_body(&physics_state, i);
         physics_integrate(i, delta_time);
 
         if (physics_state.static_body_max != 0xdeadbeef) {
-            physics_body_collide_static(&physics_state, i);
+            physics_collision_body_static(&physics_state, i);
         }
+
+        physics_collision_cleanup();
     }
 }

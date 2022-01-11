@@ -5,7 +5,8 @@
 #include "physics.h"
 
 void physics_collision_init(void);
-void physics_body_collide_body(Physics_State *physics_state, uint32_t index);
-void physics_body_collide_static(Physics_State *physics_state, uint32_t index);
+void physics_collision_body_body(Physics_State *physics_state, uint32_t index);
+void physics_collision_body_static(Physics_State *physics_state, uint32_t index);
+void physics_collision_cleanup(void);
 
 #endif
