@@ -7,7 +7,7 @@ char *io_file_read(const char *path) {
 
     if (!fp) {
         printf("Cannot read file %s\n", path);
-        exit(1);
+        return NULL;
     }
 
     fseek(fp, 0, SEEK_END);
@@ -24,7 +24,7 @@ char *io_file_read(const char *path) {
     char *buffer = malloc((length + 1) * sizeof(char));
     if (!buffer) {
         printf("Cannot allocate file buffer for %s\n", path);
-        exit(1);
+        return NULL;
     }
 
     fread(buffer, sizeof(char), length, fp);
@@ -32,5 +32,26 @@ char *io_file_read(const char *path) {
 
     fclose(fp);
 
+    printf("File loaded. %s\n", path);
     return buffer;
+}
+
+int io_file_write(void *buffer, size_t size, const char *path) {
+    FILE *fp = fopen(path, "w");
+    if (!fp) {
+        printf("Cannot write file %s\n", path);
+        return 1;
+    }
+
+    size_t chunks_written = fwrite(buffer, size, 1, fp);
+
+    fclose(fp);
+
+    if (chunks_written != 1) {
+        printf("Incorrect chunks written. Expected 1, got %zu.\n", chunks_written);
+        return 1;
+    }
+
+    printf("File created. %s\n", path);
+    return 0;
 }
