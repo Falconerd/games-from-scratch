@@ -17,6 +17,9 @@ Hit *aabb_intersect_aabb(AABB self, AABB other) {
     float dx = self.position[0] - other.position[0];
     float px = self.collider_half_sizes[0] + other.collider_half_sizes[0] - fabs(dx);
 
+    // Must not be intersecting because the distance between the two
+    // centre points is greater than the x-axis half sizes of both
+    // added together.
     if (px <= 0) {
         return NULL;
     }
@@ -24,10 +27,13 @@ Hit *aabb_intersect_aabb(AABB self, AABB other) {
     float dy = self.position[1] - other.position[1];
     float py = self.collider_half_sizes[1] + other.collider_half_sizes[1] - fabs(dy);
 
+    // Same test as above but on the y-axis.
     if (py <= 0) {
         return NULL;
     }
 
+    // Calculate how far inside (delta), which side (normal) and the point
+    // of contact (position).
     if (px < py) {
         float sx = fsign(dx);
         hit->delta[0] = px * sx;
@@ -54,7 +60,6 @@ void physics_body_collide_body(Physics_State *physics_state, uint32_t index) {
         }
 
         Body *other = &physics_state->bodies[i];
-
         Hit *hit = aabb_intersect_aabb(self->aabb, other->aabb);
 
         if (hit && self->on_collide) {
@@ -72,7 +77,6 @@ void physics_body_collide_static(Physics_State *physics_state, uint32_t index) {
         }
 
         Static_Body *other = &physics_state->static_bodies[i];
-
         Hit *hit = aabb_intersect_aabb(self->aabb, other->aabb);
 
         if (hit) {
