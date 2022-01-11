@@ -16,7 +16,7 @@ int main(void) {
             }
         }
 
-        glClearColor(0.f, 0.7f, 0.9f, 1.f);
+        glClearColor(0.f, 0.2f, 0.3f, 1.f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         render_quad((vec2){100.f, 100.f}, (vec2){100.f, 100.f}, (vec4){1.f, 0.f, 0.5f, 1.f});
