@@ -16,10 +16,10 @@ int main(void) {
             }
         }
 
-        glClearColor(0, 0.7, 0.9, 1);
+        glClearColor(0.f, 0.2f, 0.3f, 1.f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        render_quad((float[]){0, 0}, (float[]){100, 100}, (float[]){1, 1, 1, 1});
+        render_quad((vec2){100.f, 100.f}, (vec2){100.f, 100.f}, (vec4){1.f, 0.f, 0.5f, 1.f});
 
         SDL_GL_SwapWindow(window);
     }

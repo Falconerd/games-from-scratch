@@ -1,9 +1,9 @@
 #include <glad/glad.h>
 #include <SDL2/SDL.h>
-#include "../../deps/lib/linmath.h"
+#include <linmath.h>
 #include "render_internal.h"
 
-static uint32_t default_shader, text_shader, circle_shader;
+static uint32_t default_shader;
 static mat4x4 projection;
 static uint32_t quad_vao, quad_vbo, quad_ebo;
 static uint32_t color_texture;
@@ -12,9 +12,9 @@ SDL_Window *render_init(float width, float height) {
     SDL_Window *window = render_init_window(width, height);
 
     render_init_context(window);
-    render_init_shaders(&default_shader, &text_shader, &circle_shader, projection, width, height);
-    render_init_color_texture(&color_texture);
+    render_init_shaders(&default_shader, projection, width, height);
     render_init_quad(&quad_vao, &quad_vbo, &quad_ebo);
+    render_init_color_texture(&color_texture);
 
     return window;
 }
@@ -29,7 +29,10 @@ void render_quad(vec2 pos, vec2 size, vec4 color) {
     glUniformMatrix4fv(glGetUniformLocation(default_shader, "model"), 1, GL_FALSE, &model[0][0]);
     glUniform4fv(glGetUniformLocation(default_shader, "color"), 1, color);
 
-    glBindTexture(GL_TEXTURE_2D, color_texture);
     glBindVertexArray(quad_vao);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    {
+        glBindTexture(GL_TEXTURE_2D, color_texture);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, NULL);
+    }
+    glBindVertexArray(0);
 }

@@ -6,6 +6,7 @@
 uint32_t render_shader_create(const char *vert_path, const char *frag_path) {
     int success;
     char log[512];
+
 	char *vertex_source = io_file_read(vert_path);
 	uint32_t vertex_shader = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(vertex_shader, 1, (const char *const *)&vertex_source, NULL);
@@ -43,12 +44,4 @@ uint32_t render_shader_create(const char *vert_path, const char *frag_path) {
 	free(fragment_source);
 
 	return shader;
-}
-
-void render_texture_setup(uint32_t texture_id) {
-    glBindTexture(GL_TEXTURE_2D, texture_id);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 }
