@@ -55,7 +55,7 @@ int main(void) {
             velocity_x += 70;
         }
 
-        glClearColor(0.2f, 0.8f, 0.9f, 1.f);
+        glClearColor(0.f, 0.2f, 0.3f, 1.f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         physics_update(0.16f);
