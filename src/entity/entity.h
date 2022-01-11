@@ -9,7 +9,6 @@
 
 typedef struct entity {
     Body *body;
-    // vec2 *position;
 } Entity;
 
 typedef struct entity_state {

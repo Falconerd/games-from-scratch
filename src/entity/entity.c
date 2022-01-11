@@ -30,13 +30,6 @@ uint32_t entity_create(vec2 pos, vec2 collider_size, Body *bodies) {
 
     entity->body = &bodies[physics_body_create(pos, collider_size)];
 
-    // AABB *aabb = &entity->body->aabb;
-
-    // vec2_add(aabb->position, aabb->position, pos);
-    // vec2_add(aabb->collider_half_sizes, aabb->collider_half_sizes, collider_half_sizes);
-
-    // entity->position = &entity->body->aabb.position;
-
     ++entity_state.entity_count;
 
     entity_state.entity_active[index] = 1;
