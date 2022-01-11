@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <stdio.h>
 #include "io.h"
 
@@ -11,7 +12,12 @@ char *io_file_read(const char *path) {
 
     fseek(fp, 0, SEEK_END);
 
-    size_t length = ftell(fp);
+    ssize_t length = ftell(fp);
+
+    if (length == -1L) {
+        printf("Could not assertain length of file %s\n", path);
+        return NULL;
+    }
 
     fseek(fp, 0, SEEK_SET);
 
