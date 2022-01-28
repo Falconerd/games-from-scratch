@@ -6,6 +6,8 @@
 
 typedef struct config_state {
     uint8_t keybinds[4];
+    float display_width;
+    float display_height;
 } Config_State;
 
 Config_State *config_init(void);
