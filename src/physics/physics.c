@@ -38,8 +38,8 @@ uint32_t physics_body_create(vec2 pos, vec2 size) {
 
     body->position[0] = pos[0];
     body->position[1] = pos[1];
-    body->half_size[0] = size[0] * 0.5f;
-    body->half_size[1] = size[1] * 0.5f;
+    body->collider_half_sizes[0] = size[0] * 0.5f;
+    body->collider_half_sizes[1] = size[1] * 0.5f;
 
     physics_state.body_active[index] = 1;
 
@@ -69,8 +69,8 @@ uint32_t physics_static_body_create(vec2 pos, vec2 size) {
 
     static_body->position[0] = pos[0];
     static_body->position[1] = pos[1];
-    static_body->half_size[0] = size[0] * 0.5f;
-    static_body->half_size[1] = size[1] * 0.5f;
+    static_body->collider_half_sizes[0] = size[0] * 0.5f;
+    static_body->collider_half_sizes[1] = size[1] * 0.5f;
 
     physics_state.static_body_active[index] = 1;
 
@@ -85,10 +85,10 @@ uint32_t physics_static_body_create(vec2 pos, vec2 size) {
 static void physics_integrate(uint32_t index, float delta_time) {
     Body *body = &physics_state.bodies[index];
 
-    // body->velocity[1] += GRAVITY;
-    // if (body->velocity[1] < TERMINAL_VELOCITY) {
-        // body->velocity[1] = TERMINAL_VELOCITY;
-    // }
+    body->velocity[1] += GRAVITY;
+    if (body->velocity[1] < TERMINAL_VELOCITY) {
+        body->velocity[1] = TERMINAL_VELOCITY;
+    }
 
     vec2_add(body->velocity, body->velocity, body->acceleration);
 
