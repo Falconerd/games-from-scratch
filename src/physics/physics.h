@@ -33,6 +33,10 @@ typedef struct body {
     vec2 acceleration;
     On_Collide_Function on_collide;
     On_Collide_Function on_collide_static;
+    uint8_t colliding_left;
+    uint8_t colliding_right;
+    uint8_t colliding_top;
+    uint8_t colliding_bottom;
 } Body;
 
 typedef struct static_body {
@@ -48,6 +52,9 @@ typedef struct physics_state {
     Static_Body *static_bodies;
     uint8_t *static_body_active;
     uint32_t static_body_max;
+
+    AABB debug_aabb;
+    Hit debug_hit;
 } Physics_State;
 
 Physics_State *physics_init(void);
