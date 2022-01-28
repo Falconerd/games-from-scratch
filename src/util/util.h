@@ -7,5 +7,6 @@ float fsign(float x);
 #define GREEN (vec4){0.f, 1.f, 0.f, 1.f}
 #define BLUE (vec4){0.f, 0.f, 1.f, 1.f}
 #define YELLOW (vec4){1.f, 1.f, 0.f, 1.f}
+#define PINK (vec4){1.f, 0.f, 1.f, 1.f}
 
 #endif

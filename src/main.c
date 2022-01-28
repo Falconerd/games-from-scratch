@@ -95,7 +95,7 @@ int main(void) {
         glClear(GL_COLOR_BUFFER_BIT);
 
         render_aabb(&start_aabb, GREEN);
-        render_aabb(&end_aabb, BLUE);
+        render_aabb(&end_aabb, PINK);
         render_aabb(&obstacle_aabb, WHITE);
 
         float tfirst, tlast;

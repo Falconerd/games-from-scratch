@@ -3,7 +3,7 @@
 
 #include "config.h"
 
-int config_init_load(void);
+int config_init_load(Config_State *config_state);
 void config_init_create_default(void);
 
 #endif

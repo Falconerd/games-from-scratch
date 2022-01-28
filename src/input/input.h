@@ -10,9 +10,17 @@ typedef enum input_key {
     INPUT_KEY_SHOOT
 } Input_Key;
 
+typedef enum key_state {
+    KEY_STATE_UNPRESSED,
+    KEY_STATE_PRESSED,
+    KEY_STATE_HELD
+} Key_State;
+
 typedef struct input_state {
-    uint8_t left;
-    uint8_t right;
+    Key_State left;
+    Key_State right;
+    Key_State jump;
+    Key_State jump_last_frame;
 } Input_State;
 
 Input_State *input_init(void);

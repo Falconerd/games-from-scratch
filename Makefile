@@ -20,6 +20,9 @@ config.o: ./src/config/config.c ./src/config/config_init.c
 util.o: ./src/util/util.c
 	gcc $(FLAGS) -c $^
 
+player.o: ./src/game/player.c
+	gcc $(FLAGS) -c $(INCLUDE) $^
+
 clean:
 	@rm -rf *.o
 	@rm -rf a.out
