@@ -719,8 +719,8 @@ int main(void) {
 			sprite_state.sprite_sheet_array[state.weapon_anim->sprite_sheet_id],
 			state.weapon_anim->row_coordinate_array[0],
 			state.weapon_anim->column_coordinate_array[0],
-			(f32[]){player->aabb.position[0] + (player->is_flipped ? state.weapon_offset[2] : state.weapon_offset[1]), player->aabb.position[1] + state.weapon_offset[0]},
-			0,
+			(f32[]){player->aabb.position[0] + (player->is_flipped ? state.weapon_offset[2] : state.weapon_offset[1]), player->aabb.position[1] + state.weapon_offset[0], 0},
+			0.0f,
 			(vec4){1, 1, 1, 1},
 			player->is_flipped
 		);
