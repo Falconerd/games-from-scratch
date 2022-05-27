@@ -48,26 +48,26 @@ Hit *aabb_intersect_aabb(AABB self, AABB other) {
 	return hit;
 }
 
-Static_Body *physics_static_body_create(f32 x, f32 y, f32 half_width, f32 half_height, u8 layer_mask) {
+Static_Body *physics_static_body_create(f32 x, f32 y, f32 width, f32 height, u8 layer_mask) {
 	if (state->static_body_array_count == MAX_STATIC_BODIES) {
 		error_and_exit(EXIT_FAILURE, "No static bodies left.\n");
 	}
 
 	u32 index = state->static_body_array_count++;
-	Static_Body static_body = {{{x, y}, {half_width, half_height}}};
+	Static_Body static_body = {{{x, y}, {width * 0.5f, height * 0.5f}}};
 	static_body.layer_mask = layer_mask;
 	state->static_body_array[index] = static_body;
 
 	return &state->static_body_array[index];
 }
 
-Trigger *physics_trigger_create(f32 x, f32 y, f32 half_width, f32 half_height) {
+Trigger *physics_trigger_create(f32 x, f32 y, f32 width, f32 height) {
 	if (state->trigger_array_count == MAX_TRIGGERS) {
 		error_and_exit(EXIT_FAILURE, "No triggers left.\n");
 	}
 
 	u32 index = state->trigger_array_count++;
-	Trigger trigger = {{{x, y}, {half_width, half_height}}};
+	Trigger trigger = {{{x, y}, {width * 0.5f, height * 0.5f}}};
 	trigger.id = index;
 	state->trigger_array[index] = trigger;
 
@@ -84,6 +84,9 @@ void physics_tick(f32 delta_time, Entity *entity_array) {
 		Entity *entity = &entity_array[i];
 		if (!entity->is_in_use)
 			continue;
+
+		entity->last_velocity[0] = entity->velocity[0];
+		entity->last_velocity[1] = entity->velocity[1];
 
 		// Triggers. Check first because otherwise the velocity is added and
 		// entities can trigger things through static objects.

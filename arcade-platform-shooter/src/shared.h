@@ -9,6 +9,7 @@
 #include <stddef.h>
 #include <time.h>
 #include <float.h>
+#include <stdbool.h>
 
 #include "../deps/lib/linmath.h"
 
@@ -28,15 +29,15 @@
 // Defines and flags.
 ////////////////////////////////////////////////////////////////////////
 
-#define DEBUG 0
+#define DEBUG 1
 
 #define PI 3.14159265
 
 #define GAME_TITLE "Mega Box Crate"
 
-#define SCALE 6
-#define WIDTH 384
-#define HEIGHT 216
+#define SCALE 4
+#define WIDTH 480
+#define HEIGHT 270
 #define FRAME_DELAY 1000.0 / 60.0
 
 #define GRAVITY -20
@@ -45,9 +46,9 @@
 #define MAX_ENTITIES 256
 #define MAX_STATIC_BODIES 20
 #define MAX_TRIGGERS 10
-#define MAX_SPRITE_SHEETS 1
+#define MAX_SPRITE_SHEETS 10
 #define MAX_SPRITE_ANIMATIONS 20
-#define MAX_SPRITE_ANIMATION_FRAMES 3
+#define MAX_SPRITE_ANIMATION_FRAMES 32
 
 ////////////////////////////////////////////////////////////////////////
 // Shared functions.
@@ -179,6 +180,7 @@ void physics_cleanup();
 struct entity {
 	AABB aabb;
 	vec2 velocity;
+	vec2 last_velocity;
 	vec2 desired_velocity;
 	vec2 acceleration;
 	f32 rotation;
