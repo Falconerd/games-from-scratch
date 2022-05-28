@@ -77,15 +77,16 @@ extern Sprite_State sprite_state;
 ////////////////////////////////////////////////////////////////////////
 
 static const f32 PLAYER_SPAWN_X = WIDTH / 2;
-static const f32 PLAYER_SPAWN_Y = 90;
+static const f32 PLAYER_SPAWN_Y = 130;
 static const f32 PLAYER_MOVEMENT_SPEED = 150;
 static const f32 EXPLOSION_RADIUS = 60;
 static const f32 EXPLOSION_TIME = 0.25f;
-static const f32 PLAYER_JUMP_VELOCITY = 500;
-static const f32 BOX_SPAWN_REGIONS[] = {
-	24, 42, WIDTH - 42, HEIGHT - 84 
+static const f32 PLAYER_JUMP_VELOCITY = 600;
+static const f32 BOX_SPAWN_REGIONS[][4] = {
+	{32, HEIGHT - 7 * 32, 6 * 32, 6 * 32},
+	{8 * 32, HEIGHT - 7 * 32, 6 * 32, 6 * 32}
 };
-static const u32 SPAWN_REGION_COUNT = 1;
+static const u32 SPAWN_REGION_COUNT = 2;
 
 // Technically not constants - they don't change after initialisation.
 static Texture TERRAIN_TEXTURE;
@@ -144,18 +145,18 @@ static Mix_Chunk *BOX_SOUND;
 static void reset();
 static void spawn_box();
 
-static void on_fire_trigger(u32 self_id, u32 trigger_id, Hit hit) {
-	Entity *self = &entity_state.entity_array[self_id];
+static void on_fire_trigger(Collision collision) {
+	Entity *self = &entity_state.entity_array[collision.self_id];
 
 	// Make sure entities which are falling off the screen don't trigger this.
 	if (self->time_to_live > 0)
 		return;
 
-	if (self_id == 0) {
+	if (collision.self_id == 0) {
 		reset();
 	} else if (self->layer_mask == CL_ENEMY) {
         	bool is_left_side = rand() % 100 >= 50;
-		f32 spawn_x = is_left_side ? 0 - 64.0f : WIDTH + 64.0f;
+		f32 spawn_x = is_left_side ? 0 - 64 : WIDTH + 64;
 
 		self->aabb.position[0] = spawn_x;
 		self->aabb.position[1] = HEIGHT;
@@ -170,9 +171,11 @@ static void on_fire_trigger(u32 self_id, u32 trigger_id, Hit hit) {
 	}
 }
 
-static void on_player_collide(u32 self_id, u32 other_id, Hit hit) {
-	audio_sound_play(PLAYER_DEATH_SOUND);
-	reset();
+static void on_enemy_collide(Collision collision) {
+	if (collision.other_id == 0) {
+    		audio_sound_play(PLAYER_DEATH_SOUND);
+		reset();
+	}
 }
 
 static void kill_enemy(u32 id) {
@@ -183,26 +186,26 @@ static void kill_enemy(u32 id) {
 	audio_sound_play(ENEMY_DEATH_SOUND);
 }
 
-static void on_bullet_collide(u32 self_id, u32 other_id, Hit hit) {
-	entity_destroy(self_id);
-	Entity *enemy = &entity_state.entity_array[other_id];
+static void on_bullet_collide(Collision collision) {
+	entity_destroy(collision.self_id);
+	Entity *enemy = &entity_state.entity_array[collision.other_id];
 	--enemy->health;
 	if (enemy->health <= 0)
-		kill_enemy(other_id);
+		kill_enemy(collision.other_id);
 	audio_sound_play(HURT_SOUND);
 }
 
-static void on_bullet_collide_static(u32 self_id, u32 static_body_id, Hit hit) {
-	entity_destroy(self_id);
+static void on_bullet_collide_static(Collision collision) {
+	entity_destroy(collision.self_id);
 	audio_sound_play(BULLET_HIT_WALL_SOUND);
 }
 
-static void on_bullet_large_collide(u32 self_id, u32 other_id, Hit hit) {
-	entity_destroy(self_id);
-	Entity *enemy = &entity_state.entity_array[other_id];
+static void on_bullet_large_collide(Collision collision) {
+	entity_destroy(collision.self_id);
+	Entity *enemy = &entity_state.entity_array[collision.other_id];
 	enemy->health -= 2;
 	if (enemy->health <= 0)
-		kill_enemy(other_id);
+		kill_enemy(collision.other_id);
 	audio_sound_play(HURT_SOUND);
 }
 
@@ -218,21 +221,21 @@ static void rocket_damage(f32 pct) {
 	}
 }
 
-static void on_rocket_collide(u32 self_id, u32 other_id, Hit hit) {
-	entity_destroy(self_id);
-	state.rocket_explosion_position[0] = hit.position[0];
-	state.rocket_explosion_position[1] = hit.position[1];
+static void on_rocket_collide(Collision collision) {
+	entity_destroy(collision.self_id);
+	state.rocket_explosion_position[0] = collision.hit.position[0];
+	state.rocket_explosion_position[1] = collision.hit.position[1];
 	state.rocket_explosion_timer = EXPLOSION_TIME;
 	render_screen_shake_add(EXPLOSION_TIME, 1.5f);
 	state.rocket_id = 0;
 	audio_sound_play(EXPLOSION_SOUND);
 }
 
-static void on_enemy_collide_static(u32 self_id, u32 static_body_id, Hit hit) {
-	Entity *self = &entity_state.entity_array[self_id];
-	Static_Body *other = &physics_state.static_body_array[static_body_id];
+static void on_enemy_collide_static(Collision collision) {
+	Entity *self = &entity_state.entity_array[collision.self_id];
+	Static_Body *other = &physics_state.static_body_array[collision.other_id];
 	// Make sure not to flip when falling off a platform.
-	if (hit.normal[0] != 0 && other->aabb.position[1] + other->aabb.half_sizes[1] > self->aabb.position[1]) {
+	if (collision.hit.normal[0] != 0 && other->aabb.position[1] + other->aabb.half_sizes[1] > self->aabb.position[1]) {
 		self->is_flipped = self->is_flipped ? 0 : 1;
 		self->velocity[0] = -self->velocity[0];
 	} else {
@@ -249,13 +252,13 @@ static void spawn_projectile(Projectile_Type type, f32 x, f32 y, f32 velocity_x,
 	u32 projectile_id;
 	switch (type) {
 	case PT_BULLET: {
-		projectile_id = entity_create(x, y, 1.5f, 1.5f, 3, 3, -8.0f, -8.0f, CL_BULLET, BULLET_IDLE_ANIM);
+		projectile_id = entity_create(x, y, 1.5f, 1.5f, 3, 3, -8, -8, CL_BULLET, BULLET_IDLE_ANIM);
 	} break;
 	case PT_BULLET_LARGE: {
-		projectile_id = entity_create(x, y, 2, 2, 4, 4, -8.0f, -8.0f, CL_BULLET, BULLET_LARGE_IDLE_ANIM);
+		projectile_id = entity_create(x, y, 2, 2, 4, 4, -8, -8, CL_BULLET, BULLET_LARGE_IDLE_ANIM);
 	} break;
 	case PT_ROCKET: {
-		projectile_id = entity_create(x, y, 4, 2.5f, 8, 5, -8.0f, -8.0f, CL_BULLET, ROCKET_IDLE_ANIM);
+		projectile_id = entity_create(x, y, 4, 2.5f, 8, 5, -8, -8, CL_BULLET, ROCKET_IDLE_ANIM);
 		Entity *projectile = &entity_state.entity_array[projectile_id];
 		projectile->acceleration[0] = player->is_flipped ? -velocity_x * 0.05f : velocity_x * 0.05f;
 		projectile->desired_velocity[0] = player->is_flipped ? -velocity_x : velocity_x;
@@ -282,10 +285,8 @@ static void spawn_projectile(Projectile_Type type, f32 x, f32 y, f32 velocity_x,
 	projectile->is_flipped = player->is_flipped;
 }
 
-static void on_box_collide(u32 self_id, u32 other_id, Hit hit) {
-	Entity *self = &entity_state.entity_array[self_id];
-	if (other_id == 0) {
-		Entity *player = &entity_state.entity_array[other_id];
+static void on_box_collide(Collision collision) {
+	if (collision.other_id == 0) {
 		Weapon_Type new_weapon_type = rand() % WT_COUNT;
 
 		// Don't pick up the same weapon twice.
@@ -298,7 +299,7 @@ static void on_box_collide(u32 self_id, u32 other_id, Hit hit) {
 		}
 
 		state.weapon_type = new_weapon_type;
-		entity_destroy(self_id);
+		entity_destroy(collision.self_id);
 
 		state.weapon_offset_x = 0;
 		state.weapon_offset_flipped_x = 0;
@@ -307,33 +308,33 @@ static void on_box_collide(u32 self_id, u32 other_id, Hit hit) {
 		switch (new_weapon_type) {
 		case WT_SHOTGUN: {
 			state.weapon_anim = &sprite_state.sprite_animation_array[SHOTGUN_IDLE_ANIM];
-			state.weapon_offset_y = -14.0f;
-			state.weapon_offset_x = -10.0f;
-			state.weapon_offset_flipped_x = -22.0f;
+			state.weapon_offset_y = -14;
+			state.weapon_offset_x = -10;
+			state.weapon_offset_flipped_x = -22;
 		} break;
 		case WT_MACHINE_GUN: {
 			state.weapon_anim = &sprite_state.sprite_animation_array[MACHINE_GUN_IDLE_ANIM];
-			state.weapon_offset_y = -12.0f;
-			state.weapon_offset_x = -10.0f;
-			state.weapon_offset_flipped_x = -22.0f;
+			state.weapon_offset_y = -12;
+			state.weapon_offset_x = -10;
+			state.weapon_offset_flipped_x = -22;
 		} break;
 		case WT_ROCKET_LAUNCHER: {
 			state.weapon_anim = &sprite_state.sprite_animation_array[ROCKET_LAUNCHER_IDLE_ANIM];
-			state.weapon_offset_y = -12.0f;
-			state.weapon_offset_x = -8.0f;
-			state.weapon_offset_flipped_x = -24.0f;
+			state.weapon_offset_y = -12;
+			state.weapon_offset_x = -8;
+			state.weapon_offset_flipped_x = -24;
 		} break;
 		case WT_PISTOL: {
 			state.weapon_anim = &sprite_state.sprite_animation_array[PISTOL_IDLE_ANIM];
-			state.weapon_offset_y = -12.0f;
-			state.weapon_offset_x = -8.0f;
-			state.weapon_offset_flipped_x = -24.0f;
+			state.weapon_offset_y = -12;
+			state.weapon_offset_x = -8;
+			state.weapon_offset_flipped_x = -24;
 		} break;
 		case WT_REVOLVER: {
 			state.weapon_anim = &sprite_state.sprite_animation_array[REVOLVER_IDLE_ANIM];
-			state.weapon_offset_y = -12.0f;
-			state.weapon_offset_x = -8.0f;
-			state.weapon_offset_flipped_x = -24.0f;
+			state.weapon_offset_y = -12;
+			state.weapon_offset_x = -8;
+			state.weapon_offset_flipped_x = -24;
 		} break;
 		case WT_COUNT: break;
 		}
@@ -347,10 +348,10 @@ static void on_box_collide(u32 self_id, u32 other_id, Hit hit) {
 }
 
 static void spawn_box() {
-	const f32 *region = &BOX_SPAWN_REGIONS[rand() % SPAWN_REGION_COUNT];
+	const f32 *region = &BOX_SPAWN_REGIONS[rand() % SPAWN_REGION_COUNT][0];
 	f32 x = frandr(region[0], region[0] + region[2]);
 	f32 y = frandr(region[1], region[1] + region[3]);
-	u32 id = entity_create(x, y, 4, 4, 8, 8, -8, -4, CL_BOX, BOX_IDLE_ANIM);
+	u32 id = entity_create(x, y, 8, 8, 8, 8, -8, -8, CL_BOX, BOX_IDLE_ANIM);
 	Entity *entity = &entity_state.entity_array[id];
 	entity->on_collide = on_box_collide;
 }
@@ -371,9 +372,9 @@ static void reset() {
 	state.weapon_type = WT_PISTOL;
 	state.weapon_anim = &sprite_state.sprite_animation_array[PISTOL_IDLE_ANIM];
 	// Refactor?: duplication
-	state.weapon_offset_y = -12.0f;
-	state.weapon_offset_x = -8.0f;
-	state.weapon_offset_flipped_x = -24.0f;
+	state.weapon_offset_y = -12;
+	state.weapon_offset_x = -8;
+	state.weapon_offset_flipped_x = -24;
 
 	state.rocket_id = 0;
 
@@ -469,34 +470,32 @@ int main(void) {
 	ANIM_FIRE = sprite_animation_create(SPRITE_SHEET_FIRE, 7, (u8[]){0, 0, 0, 0, 0, 0, 0}, (u8[]){0, 1, 2, 3, 4, 5, 6}, (f32[]){0.1f, 0.1f, 0.1f, 0.1f, 0.1f, 0.1f}, 1);
 
 	// Setup player.
-	u32 player_id = entity_create(PLAYER_SPAWN_X, PLAYER_SPAWN_Y, 6, 6, 24, 24, -12, -6, CL_PLAYER, PLAYER_IDLE_ANIM);
-	Entity *player = &entity_state.entity_array[player_id];
-	player->on_collide = on_player_collide;
+	entity_create(PLAYER_SPAWN_X, PLAYER_SPAWN_Y, 6, 6, 24, 24, -12, -6, CL_PLAYER, PLAYER_IDLE_ANIM);
 
 	// Setup colliders.
 	{
-		f32 tile_size = 32.0f;
+		f32 tile_size = 32;
 		f32 tile_half_size = tile_size * 0.5f;
 
 		// Top.
 		physics_static_body_create(WIDTH * 0.5f, HEIGHT - tile_half_size, WIDTH, tile_size, CL_TERRAIN);
 
 		// Sides.
-		physics_static_body_create(tile_half_size, HEIGHT - 5.5f * tile_size, tile_size, 7.0f * tile_size, CL_TERRAIN);
-		physics_static_body_create(WIDTH - tile_half_size, HEIGHT - 5.5f * tile_size, tile_size, 7.0f * tile_size, CL_TERRAIN);
+		physics_static_body_create(tile_half_size, HEIGHT - 5.5f * tile_size, tile_size, 7 * tile_size, CL_TERRAIN);
+		physics_static_body_create(WIDTH - tile_half_size, HEIGHT - 5.5f * tile_size, tile_size, 7 * tile_size, CL_TERRAIN);
 
 		// Spawn platforms outside the screen.
-		physics_static_body_create(-tile_half_size, HEIGHT - tile_size * 2.5f, tile_size * 3.0f, tile_size, CL_TERRAIN);
-		physics_static_body_create(WIDTH + tile_half_size, HEIGHT - tile_size * 2.5f, tile_size * 3.0f, tile_size, CL_TERRAIN);
+		physics_static_body_create(-tile_half_size, HEIGHT - tile_size * 2.5f, tile_size * 3, tile_size, CL_TERRAIN);
+		physics_static_body_create(WIDTH + tile_half_size, HEIGHT - tile_size * 2.5f, tile_size * 3, tile_size, CL_TERRAIN);
 
 		// Bottom.
-		physics_static_body_create(3.5f * tile_size, HEIGHT - 8.0f * tile_size, 7.0f * tile_size, 2.0f * tile_size, CL_TERRAIN);
-		physics_static_body_create(WIDTH - 3.5f * tile_size, HEIGHT - 8.0f * tile_size, 7.0f * tile_size, 2.0f * tile_size, CL_TERRAIN);
+		physics_static_body_create(3.5f * tile_size, HEIGHT - 8 * tile_size, 7 * tile_size, 2 * tile_size, CL_TERRAIN);
+		physics_static_body_create(WIDTH - 3.5f * tile_size, HEIGHT - 8 * tile_size, 7 * tile_size, 2 * tile_size, CL_TERRAIN);
 
 		// Platforms.
-		physics_static_body_create((64.0f + 128.0f) * 0.5f, 168.0f, 128.0f, 12.0f, CL_TERRAIN);
-		physics_static_body_create(WIDTH - (64.0f + 128.0f) * 0.5f, 168.0f, 128.0f, 12.0f, CL_TERRAIN);
-		physics_static_body_create(WIDTH * 0.5f, 104.0f, 288.0f, 12.0f, CL_TERRAIN);
+		physics_static_body_create((64 + 128) * 0.5f, 168, 128, 12, CL_TERRAIN);
+		physics_static_body_create(WIDTH - (64 + 128) * 0.5f, 168, 128, 12, CL_TERRAIN);
+		physics_static_body_create(WIDTH * 0.5f, 104, 288, 12, CL_TERRAIN);
 
 		// Player only collision.
 		physics_static_body_create(tile_half_size * 0.5f, HEIGHT - tile_size * 1.5f, tile_size, tile_size, CL_ENEMY);
@@ -517,7 +516,7 @@ int main(void) {
 		state.time_last_frame = state.time_now;
 		state.frame_count++;
 
-		if (state.time_now - state.previous_time >= 1000.0f) {
+		if (state.time_now - state.previous_time >= 1000) {
 			state.frame_rate = state.frame_count;
 			state.frame_count = 0;
 			state.previous_time = state.time_now;
@@ -579,7 +578,7 @@ int main(void) {
 				case WT_MACHINE_GUN: {
 					audio_sound_play(MACHINE_GUN_SOUND);
 					state.shoot_timer = 0.05f;
-					spawn_projectile(PT_BULLET, player->aabb.position[0], player->aabb.position[1] + 4.0f, 400, frandr(-15, 15), 9, on_bullet_collide, on_bullet_collide_static);
+					spawn_projectile(PT_BULLET, player->aabb.position[0], player->aabb.position[1] + 4, 400, frandr(-15, 15), 9, on_bullet_collide, on_bullet_collide_static);
 					state.weapon_kick = 100;
 					render_screen_shake_add(0.05f, 0.15f);
 				} break;
@@ -589,8 +588,8 @@ int main(void) {
 					render_screen_shake_add(0.1f, 0.75f);
 					for (u32 i = 0; i < 15; ++i) {
 						f32 vy = frandr(-35, 35);
-						f32 vx = frandr(150, 210);
-						spawn_projectile(PT_BULLET, player->aabb.position[0] + (player->is_flipped ? -8.0f : 8.0f), player->aabb.position[1], vx, vy, 0.25f, on_bullet_collide, on_bullet_collide_static);
+						f32 vx = frandr(280, 350);
+						spawn_projectile(PT_BULLET, player->aabb.position[0] + (player->is_flipped ? -8 : 8), player->aabb.position[1], vx, vy, 0.25f, on_bullet_collide, on_bullet_collide_static);
 					}
 				} break;
 				case WT_ROCKET_LAUNCHER: {
@@ -601,13 +600,13 @@ int main(void) {
 				case WT_PISTOL: {
 					audio_sound_play(SHOOT_SOUND);
 					state.shoot_timer = 0.25f;
-					spawn_projectile(PT_BULLET, player->aabb.position[0], player->aabb.position[1] + 5.0f, 300, 0, 9, on_bullet_collide, on_bullet_collide_static);
+					spawn_projectile(PT_BULLET, player->aabb.position[0], player->aabb.position[1] + 5, 300, 0, 9, on_bullet_collide, on_bullet_collide_static);
 					render_screen_shake_add(0.05f, 0.03f);
 				} break;
 				case WT_REVOLVER: {
 					audio_sound_play(REVOLVER_SOUND);
 					state.shoot_timer = 0.55f;
-					spawn_projectile(PT_BULLET_LARGE, player->aabb.position[0], player->aabb.position[1] + 5.0f, 300, 0, 9, on_bullet_large_collide, on_bullet_collide_static);
+					spawn_projectile(PT_BULLET_LARGE, player->aabb.position[0], player->aabb.position[1] + 5, 300, 0, 9, on_bullet_large_collide, on_bullet_collide_static);
 					render_screen_shake_add(0.1f, 0.75f);
 				} break;
 				case WT_COUNT: break;
@@ -649,12 +648,12 @@ int main(void) {
 			bool is_small_entity = rand() % 100 > 18;
 			bool is_left_side = rand() % 100 >= 50;
 
-			f32 spawn_x = is_left_side ? 0 - 64.0f : WIDTH + 64.0f;
+			f32 spawn_x = is_left_side ? 0 - 64 : WIDTH + 64;
 
 			if (is_small_entity) {
-				enemy_id = entity_create(spawn_x, HEIGHT, 8, 8, 24, 24, -8, -8, CL_ENEMY, SMALL_ENEMY_WALK_ANIM);
+				enemy_id = entity_create(spawn_x, HEIGHT, 8, 8, 24, 24, -12, -8, CL_ENEMY, SMALL_ENEMY_WALK_ANIM);
 			} else {
-				enemy_id = entity_create(spawn_x, HEIGHT, 12, 12, 40, 40, -12, -12, CL_ENEMY, LARGE_ENEMY_WALK_ANIM);
+				enemy_id = entity_create(spawn_x, HEIGHT, 12, 12, 40, 40, -18, -12, CL_ENEMY, LARGE_ENEMY_WALK_ANIM);
 				health = 7;
 				speed = 60;
 			}
@@ -664,6 +663,7 @@ int main(void) {
 			enemy->is_flipped = !is_left_side;
 			enemy->velocity[0] = is_left_side ? speed : -speed;
 			enemy->on_collide_static = on_enemy_collide_static;
+			enemy->on_collide = on_enemy_collide;
 			enemy->time_to_live = 0;
 		}
 
@@ -679,7 +679,7 @@ int main(void) {
 
 		// Render terrain.
 		// It's rendered before physics is updated as physics may have some debug rendering.
-		render_sprite(TERRAIN_TEXTURE, NULL, (vec3){0, -18.0f, 0}, NULL, 0, (vec4){1, 1, 1, 1}, 0);
+		render_sprite(TERRAIN_TEXTURE, NULL, (vec3){0, -18, 0}, NULL, 0, (vec4){1, 1, 1, 1}, 0);
 		// Update physics.
 		physics_tick(state.delta_time, entity_state.entity_array);
 		physics_cleanup();
@@ -689,7 +689,7 @@ int main(void) {
 		// Render explosion.
 		if (state.rocket_explosion_timer > 0) {
 			glUseProgram(render_state.circle_shader);
-			f32 pct = 1.0f - state.rocket_explosion_timer / EXPLOSION_TIME;
+			f32 pct = 1 - state.rocket_explosion_timer / EXPLOSION_TIME;
 			render_circle(state.rocket_explosion_position[0],
 				      state.rocket_explosion_position[1],
 				      EXPLOSION_RADIUS * pct, (vec4){1, 1, 1, 1});
@@ -751,7 +751,7 @@ int main(void) {
 			state.weapon_anim->row_coordinate_array[0],
 			state.weapon_anim->column_coordinate_array[0],
 			(f32[]){player->aabb.position[0] + (player->is_flipped ? state.weapon_offset_flipped_x : state.weapon_offset_x), player->aabb.position[1] + state.weapon_offset_y, 0},
-			0.0f,
+			0,
 			(vec4){1, 1, 1, 1},
 			player->is_flipped
 		);
@@ -796,8 +796,7 @@ int main(void) {
 
 		// Render spawn regions.
 		for (u32 i = 0; i < SPAWN_REGION_COUNT; ++i) {
-			printf("[%d] %d\n", i, SPAWN_REGION_COUNT);
-			const f32 *spawn_region = &BOX_SPAWN_REGIONS[i];
+			const f32 *spawn_region = &BOX_SPAWN_REGIONS[i][0];
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 			render_quad(spawn_region[0], spawn_region[1], spawn_region[2], spawn_region[3], (vec4){1, 1, 0.5, 0.8});
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);

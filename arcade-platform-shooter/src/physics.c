@@ -54,8 +54,7 @@ Static_Body *physics_static_body_create(f32 x, f32 y, f32 width, f32 height, u8 
 	}
 
 	u32 index = state->static_body_array_count++;
-	Static_Body static_body = {{{x, y}, {width * 0.5f, height * 0.5f}}};
-	static_body.layer_mask = layer_mask;
+	Static_Body static_body = {.aabb = {{x, y}, {width * 0.5f, height * 0.5f}}, .layer_mask = layer_mask};
 	state->static_body_array[index] = static_body;
 
 	return &state->static_body_array[index];
@@ -67,8 +66,7 @@ Trigger *physics_trigger_create(f32 x, f32 y, f32 width, f32 height) {
 	}
 
 	u32 index = state->trigger_array_count++;
-	Trigger trigger = {{{x, y}, {width * 0.5f, height * 0.5f}}};
-	trigger.id = index;
+	Trigger trigger = {.aabb = {{x, y}, {width * 0.5f, height * 0.5f}}, .id = index};
 	state->trigger_array[index] = trigger;
 
 	return &state->trigger_array[index];
@@ -94,7 +92,7 @@ void physics_tick(f32 delta_time, Entity *entity_array) {
 			Trigger *trigger = &state->trigger_array[j];
 			Hit *hit = aabb_intersect_aabb(entity->aabb, trigger->aabb);
 			if (hit != NULL && trigger->on_trigger != NULL)
-				trigger->on_trigger(i, j, *hit);
+				trigger->on_trigger((Collision){ .self_id = i, .other_id = j, .hit = *hit });
 		}
 
 		// Collision events with other entities.
@@ -104,7 +102,7 @@ void physics_tick(f32 delta_time, Entity *entity_array) {
 				continue;
 			Hit *hit = aabb_intersect_aabb(entity->aabb, other->aabb);
 			if (hit != NULL && entity->on_collide != NULL)
-				entity->on_collide(i, j, *hit);
+				entity->on_collide((Collision){ .self_id = i, .other_id = j, .hit = *hit });
 		}
 
 		// Integrate.
@@ -146,7 +144,7 @@ void physics_tick(f32 delta_time, Entity *entity_array) {
 				was_hit = 1;
 
 				if (entity->on_collide_static != NULL)
-					entity->on_collide_static(i, j, *hit);
+					entity->on_collide_static((Collision){ .self_id = i, .other_id = j, .hit = *hit });
 			}
 		}
 

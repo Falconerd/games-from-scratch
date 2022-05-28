@@ -20,8 +20,6 @@ typedef struct character_data {
 } Character_Data;
 
 static Character_Data character_data_array[128];
-static u32 text_atlas_width = 0;
-static u32 text_atlas_height = 0;
 
 static FT_Face face;
 static FT_GlyphSlot g;
@@ -306,14 +304,14 @@ void render_text(const char *text, f32 x, f32 y, vec4 color, u8 is_centered) {
 		f32 width = 0;
 
 		for (const char *p = text; *p; ++p) {
-			width += character_data_array[*p].width;
+			width += character_data_array[(u32)*p].width;
 		}
 
 		x -= width * 0.5;
 	}
 
 	for (const char *p = text; *p; ++p) {
-		Character_Data cd = character_data_array[*p];
+		Character_Data cd = character_data_array[(u32)*p];
 
 		f32 x2 = x + cd.left;
 		f32 y2 = y - (cd.height - cd.top);

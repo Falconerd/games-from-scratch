@@ -40,8 +40,8 @@
 #define HEIGHT 270
 #define FRAME_DELAY 1000.0 / 60.0
 
-#define GRAVITY -20
-#define TERMINAL_VELOCITY -200
+#define GRAVITY -30
+#define TERMINAL_VELOCITY -300
 
 #define MAX_ENTITIES 256
 #define MAX_STATIC_BODIES 20
@@ -79,9 +79,11 @@ typedef struct render_state Render_State;
 
 typedef struct sprite_sheet Sprite_Sheet;
 
-typedef void (*On_Collide_Function)(u32 self_id, u32 other_id, Hit hit);
-typedef void (*On_Collide_Static_Function)(u32 self_id, u32 static_body_id, Hit hit);
-typedef void (*On_Trigger_Function)(u32 self_id, u32 trigger_id, Hit hit);
+typedef struct collision Collision;
+
+typedef void (*On_Collide_Function)(Collision collision);
+typedef void (*On_Collide_Static_Function)(Collision collision);
+typedef void (*On_Trigger_Function)(Collision collision);
 
 ////////////////////////////////////////////////////////////////////////
 // Render.
@@ -154,6 +156,12 @@ struct trigger {
 	AABB aabb;
 	u32 id;
 	On_Trigger_Function on_trigger;
+};
+
+struct collision {
+	u32 self_id;
+	u32 other_id;
+	Hit hit;
 };
 
 struct physics_state {

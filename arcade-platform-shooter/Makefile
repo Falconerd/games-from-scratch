@@ -1,4 +1,4 @@
-FLAGS = -g3 -O0 -std=c99
+FLAGS = -g3 -O0 -std=c99 -pedantic -Wall -Wextra
 FILES = src/main.c deps/src/glad.c src/render.c src/shared.c src/io.c src/audio.c src/input.c src/entity.c src/physics.c src/sprite.c
 
 ifeq ($(OS), Windows_NT)
