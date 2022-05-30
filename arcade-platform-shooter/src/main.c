@@ -155,11 +155,19 @@ static void on_fire_trigger(Collision collision) {
 	if (collision.self_id == 0) {
 		reset();
 	} else if (self->layer_mask == CL_ENEMY) {
-        	bool is_left_side = rand() % 100 >= 50;
+		bool is_left_side = rand() % 100 >= 50;
 		f32 spawn_x = is_left_side ? 0 - 64 : WIDTH + 64;
 
 		self->aabb.position[0] = spawn_x;
 		self->aabb.position[1] = HEIGHT;
+
+		if (is_left_side) {
+			self->velocity[0] = fabs(self->velocity[0]);
+			self->is_flipped = false;
+		} else {
+			self->velocity[0] = -fabs(self->velocity[0]);
+			self->is_flipped = true;
+		}
 		
 		if (self->animation_id == SMALL_ENEMY_WALK_ANIM) {
 			self->animation_id = SMALL_ANGRY_ENEMY_WALK_ANIM;
@@ -173,7 +181,7 @@ static void on_fire_trigger(Collision collision) {
 
 static void on_enemy_collide(Collision collision) {
 	if (collision.other_id == 0) {
-    		audio_sound_play(PLAYER_DEATH_SOUND);
+		audio_sound_play(PLAYER_DEATH_SOUND);
 		reset();
 	}
 }
@@ -193,6 +201,10 @@ static void on_bullet_collide(Collision collision) {
 	if (enemy->health <= 0)
 		kill_enemy(collision.other_id);
 	audio_sound_play(HURT_SOUND);
+	enemy->desired_sprite_color[1] = 0;
+	enemy->sprite_color_delta[1] = -0.35f;
+	enemy->desired_sprite_color[2] = 0;
+	enemy->sprite_color_delta[2] = -0.35f;
 }
 
 static void on_bullet_collide_static(Collision collision) {
@@ -386,7 +398,7 @@ static void reset() {
 
 	spawn_box();
 
-        u32 fire_id = entity_create(WIDTH * 0.5f, 0, 16, 32, 32, 64, -16, -32, CL_MISC, ANIM_FIRE);
+	u32 fire_id = entity_create(WIDTH * 0.5f, 0, 16, 32, 32, 64, -16, -32, CL_MISC, ANIM_FIRE);
 	Entity *fire = &entity_state.entity_array[fire_id];
 	fire->is_kinematic = true;
 }
@@ -485,8 +497,8 @@ int main(void) {
 		physics_static_body_create(WIDTH - tile_half_size, HEIGHT - 5.5f * tile_size, tile_size, 7 * tile_size, CL_TERRAIN);
 
 		// Spawn platforms outside the screen.
-		physics_static_body_create(-tile_half_size, HEIGHT - tile_size * 2.5f, tile_size * 3, tile_size, CL_TERRAIN);
-		physics_static_body_create(WIDTH + tile_half_size, HEIGHT - tile_size * 2.5f, tile_size * 3, tile_size, CL_TERRAIN);
+		physics_static_body_create(-tile_half_size * 2.5, HEIGHT - tile_size * 2.5f, tile_size * 5, tile_size, CL_TERRAIN);
+		physics_static_body_create(WIDTH + tile_half_size * 2.5, HEIGHT - tile_size * 2.5f, tile_size * 5, tile_size, CL_TERRAIN);
 
 		// Bottom.
 		physics_static_body_create(3.5f * tile_size, HEIGHT - 8 * tile_size, 7 * tile_size, 2 * tile_size, CL_TERRAIN);
