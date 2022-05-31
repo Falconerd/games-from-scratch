@@ -1,4 +1,7 @@
+// DELETE ME
 #include "shared.h"
+
+#include "./engine/io.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "../deps/lib/stb_image.h"
@@ -251,7 +254,7 @@ static void texture_setup(u32 texture_id) {
 static u32 shader_setup(const char *vert_path, const char *frag_path) {
 	int success;
 	char log[512];
-	char *vertex_source = read_file_into_buffer(vert_path);
+	char *vertex_source = io_file_read(vert_path);
 	uint32_t vertex_shader = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(vertex_shader, 1, (const char *const *)&vertex_source, NULL);
 	glCompileShader(vertex_shader);
@@ -261,7 +264,7 @@ static u32 shader_setup(const char *vert_path, const char *frag_path) {
 		error_and_exit(-1, log);
 	}
 
-	char *fragment_source = read_file_into_buffer(frag_path);
+	char *fragment_source = io_file_read(frag_path);
 	uint32_t fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
 	glShaderSource(fragment_shader, 1, (const char *const *)&fragment_source, NULL);
 	glCompileShader(fragment_shader);
