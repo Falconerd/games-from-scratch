@@ -1,4 +1,14 @@
-#include "shared.h"
+#include <glad/glad.h>
+#include <SDL2/SDL.h>
+#include <stdio.h>
+
+#include "engine/render.h"
+#include "engine/input.h"
+#include "engine/config.h"
+#include "engine/util.h"
+#include "engine/physics.h"
+#include "engine/time.h"
+#include "engine/entity.h"
 
 ////////////////////////////////////////////////////////////////////////
 // Types and state.
@@ -432,6 +442,9 @@ static void reset() {
 
 int main(void) {
 	srand(time(NULL));
+
+	Config_State *config_state = config_init();
+	SDL_Window *window = render_init(config_state->display_width, config_state->display_height);
 
 	// Setup states.
 	entity_setup();

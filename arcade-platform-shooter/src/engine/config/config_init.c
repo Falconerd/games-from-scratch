@@ -43,13 +43,13 @@ static void load_controls() {
 	config_key_bind(INPUT_KEY_SHOOT, config_get_value("shoot"));
 }
 
-static void load_display(Config *config_state) {
+static void load_display(Config_State *config_state) {
 	config_state->display_width = (float)atof(config_get_value("width"));
 	config_state->display_height = (float)atof(config_get_value("height"));
 	config_state->framerate = (float)atof(config_get_value("framerate"));
 }
 
-int config_init_load(Config *config_state) {
+int config_init_load(Config_State *config_state) {
 	config_buffer = io_file_read("./config.ini");
 	if (!config_buffer) {
 		return 1;

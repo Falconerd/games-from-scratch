@@ -9,9 +9,9 @@ typedef struct config {
 	float display_width;
 	float display_height;
 	float framerate;
-} Config;
+} Config_State;
 
-Config *config_init(void);
+Config_State *config_init(void);
 void config_key_bind(Input_Key key, const char *key_name);
 
 #endif

@@ -3,7 +3,7 @@
 #include "config_internal.h"
 #include "../input.h"
 
-static Config config_state;
+static Config_State config_state;
 
 Config *config_init(void) {
 	if (config_init_load(&config_state) != 0) {
