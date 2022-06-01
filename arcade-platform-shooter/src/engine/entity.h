@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include "../../deps/lib/linmath.h"
+#include "./types.h"
 
 #define MAX_ENTITIES 256
 

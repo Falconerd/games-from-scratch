@@ -2,13 +2,14 @@
 #define CONFIG_H
 
 #include <stdlib.h>
-#include "input.h"
+#include "./input.h"
+#include "./types.h"
 
 typedef struct config {
-	uint8_t keybinds[4];
-	float display_width;
-	float display_height;
-	float framerate;
+	u8 keybinds[5];
+	f32 display_width;
+	f32 display_height;
+	f32 framerate;
 } Config_State;
 
 Config_State *config_init(void);

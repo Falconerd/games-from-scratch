@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <inttypes.h>
+#include <stdbool.h>
 #include "../../deps/lib/linmath.h"
 #include "./types.h"
 
@@ -20,9 +21,10 @@ typedef struct aabb {
 typedef struct body {
 	AABB aabb;
 	vec2 velocity;
-	u8 is_static;
-	u8 is_active;
-	u8 is_grounded;
+
+	bool is_static;
+	bool is_active;
+	bool is_grounded;
 } Body;
 
 struct physics_state {
@@ -31,8 +33,7 @@ struct physics_state {
 	Body *bodies;
 };
 
-u8 aabb_intersect_aabb(AABB a, AABB b);
-u8 aabb_intersect_aabb_moving(AABB a, AABB b, vec2 va, vec2 vb, f32 *tfirst, f32 *tlast, f32 *nx, f32 *ny);
+u8 aabb_sweep_aabb(AABB a, AABB b, vec2 va, vec2 vb, f32 *tfirst, f32 *tlast, f32 *nx, f32 *ny);
 
 Physics_State *physics_init(void);
 void physics_update(f32 delta_time);
