@@ -97,10 +97,11 @@ void physics_update(f32 delta_time) {
 			if (aabb_sweep_aabb(a->aabb, b->aabb, va, vb, &tfirst, &tlast, &nx, &ny) && b->is_static) {
 				hit_static = 1;
 
+				printf("hit_static: t: %2.f %2.f, n: %2.f %2.f\n", tfirst, tlast, nx, ny);
+
+				// If normal is down, we may hit the ground.
 				if (ny > 0) {
-					if (a->velocity[1] <= 0) {
-						printf("a->vel\t%f\tb->vel\t%f\tdt\t%f\n", a->velocity[1], b->velocity[1], delta_time);
-						printf("hit_static:\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n", a->aabb.position[1], b->aabb.position[1], tfirst, tlast, nx, ny, va[1], vb[1]);
+					if (a->velocity[1] < 0) {
 						a->is_grounded = true;
 						a->velocity[1] = GRAVITY;
 					} else {
@@ -112,7 +113,7 @@ void physics_update(f32 delta_time) {
 				if (ny < 0) {
 					if (a->velocity[1] > 0) {
 						a->velocity[1] = 0;
-						a->aabb.position[1] = (a->aabb.position[1] + va[1] * tfirst) -1;
+						a->aabb.position[1] = (a->aabb.position[1] + va[1] * tfirst) - 1;
 					}
 				} else {
 					f32 tremainder = 1 - tfirst;
