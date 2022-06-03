@@ -30,5 +30,4 @@ entity.o: ./src/engine/entity/entity.c
 	gcc $(FLAGS) -c $(INC) $^
 
 clean:
-	@rm -rf ./*.o
-	@rm -rf ./a.out ./a.exe
+	@rm -rf ./*.o ./*.obj ./*.ilk ./*.pdb ./*.exe ./*.out

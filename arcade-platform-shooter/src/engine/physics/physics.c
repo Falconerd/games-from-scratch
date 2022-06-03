@@ -17,20 +17,31 @@ Physics_State *physics_init() {
 	return &physics_state;
 }
 
-u8 aabb_sweep_aabb(AABB a, AABB b, vec2 va, vec2 vb, f32 *tfirst, f32 *tlast, f32 *nx, f32 *ny) {
+u8 aabb_intersect_aabb(AABB a, AABB b) {
+	for (u8 i = 0; i < 2; ++i) {
+		if (a.position[i] + a.half_size[i] < b.position[i] - b.half_size[i] || a.position[i] - a.half_size[i] > b.position[i] + b.half_size[i]) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+u8 aabb_sweep_aabb(AABB a, AABB b, vec2 va, vec2 vb, f32 *tfirst, f32 *tlast, vec2 normal) {
 	f32 dx = a.position[0] - b.position[0];
 	f32 px = a.half_size[0] + b.half_size[0] - fabsf(dx);
 	f32 dy = a.position[1] - b.position[1];
 	f32 py = a.half_size[1] + b.half_size[1] - fabsf(dy);
 
-	*nx = px < py ? fsignf(a.position[0] - b.position[0]) : 0;
-	*ny = px >= py ? fsignf(a.position[1] - b.position[1]) : 0;
+	normal[0] = px < py ? fsignf(a.position[0] - b.position[0]) : 0;
+	normal[1] = px >= py ? fsignf(a.position[1] - b.position[1]) : 0;
+
+	if (aabb_intersect_aabb(a, b)) {
+		*tfirst = *tlast = 0;
+		return 1;
+	}
 
 	vec2 v;
-	//vec2_sub(v, vb, va);
-
-	v[0] = vb[0] - va[0];
-	v[1] = vb[1] - va[1];
+	vec2_sub(v, vb, va);
 
 	*tfirst = 0;
 	*tlast = 1;
@@ -54,6 +65,10 @@ u8 aabb_sweep_aabb(AABB a, AABB b, vec2 va, vec2 vb, f32 *tfirst, f32 *tlast, f3
 			if (amax[i] > bmin[i]) *tlast = fminf((amax[i] - bmin[i]) / v[i], *tlast);
 		}
 
+		if (v[i] == 0 && normal[i] != 0) {
+			return 0;
+		}
+
 		if (*tfirst > *tlast) return 0;
 	}
 
@@ -61,85 +76,66 @@ u8 aabb_sweep_aabb(AABB a, AABB b, vec2 va, vec2 vb, f32 *tfirst, f32 *tlast, f3
 }
 
 void physics_update(f32 delta_time) {
-	for (u32 i = 0; i <= physics_state.body_max; ++i) {
-		Body *a = &physics_state.bodies[i];
+	for (u32 i = 0; i < physics_state.body_array_count; ++i) {
+		Body *a = &physics_state.body_array[i];
 
-		if (!a->is_active) continue;
-
-		// Static bodies do not collide with each other.
-		// They also do not update with gravity, velocity, etc.
-		if (a->is_static) {
+		if (!a->is_active) {
 			continue;
 		}
 
 		a->velocity[1] += GRAVITY;
-		if (a->velocity[1] < TERMINAL_VELOCITY)
+		if (TERMINAL_VELOCITY > a->velocity[1]) {
 			a->velocity[1] = TERMINAL_VELOCITY;
+		}
 
-		if (a->velocity[1] > 0)
-			a->is_grounded = false;
+		vec2 scaled_velocity = { a->velocity[0] * delta_time, a->velocity[1] * delta_time };
+		a->is_grounded = false;
 
-		u8 hit_static = 0;
+		for (u32 j = 0; j < physics_state.body_static_array_count; ++j) {
+			Body_Static *b = &physics_state.body_static_array[j];
 
-		for (u32 j = 0; j <= physics_state.body_max; ++j) {
-			if (i == j) continue;
-
-			Body *b = &physics_state.bodies[j];
-
-			if (!b->is_active) continue;
+			if (!b->is_active) {
+				continue;
+			}
 
 			f32 tfirst, tlast;
-			f32 nx = 0, ny = 0;
-			vec2 va, vb;
-			vec2_scale(va, a->velocity, delta_time);
-			vec2_scale(vb, b->velocity, delta_time);
+			vec2 normal;
 
-			if (aabb_sweep_aabb(a->aabb, b->aabb, va, vb, &tfirst, &tlast, &nx, &ny) && b->is_static) {
-				hit_static = 1;
+			u8 hit = aabb_sweep_aabb(a->aabb, b->aabb, scaled_velocity, (vec2){0, 0}, &tfirst, &tlast, normal);
 
-				if (ny > 0) {
-					if (a->velocity[1] <= 0) {
-						printf("a->vel\t%f\tb->vel\t%f\tdt\t%f\n", a->velocity[1], b->velocity[1], delta_time);
-						printf("hit_static:\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n", a->aabb.position[1], b->aabb.position[1], tfirst, tlast, nx, ny, va[1], vb[1]);
-						a->is_grounded = true;
-						a->velocity[1] = GRAVITY;
-					} else {
-						a->is_grounded = false;
-						hit_static = false;
+			if (hit) {
+				a->aabb.position[0] = a->aabb.position[0] + scaled_velocity[0] * tfirst;
+				a->aabb.position[1] = a->aabb.position[1] + scaled_velocity[1] * tfirst;
+
+				if (normal[0] != 0) {
+					a->velocity[0] = 0;
+				}
+
+				if (normal[1] > 0) {
+					a->is_grounded = true;
+					if (a->velocity[1] < 0) {
+						a->velocity[1] = 0;
 					}
 				}
 
-				if (ny < 0) {
+				if (normal[1] < 0) {
 					if (a->velocity[1] > 0) {
 						a->velocity[1] = 0;
-						a->aabb.position[1] = (a->aabb.position[1] + va[1] * tfirst) -1;
 					}
-				} else {
-					f32 tremainder = 1 - tfirst;
-					f32 dp = (a->velocity[0] * ny + a->velocity[1] * nx) * tremainder;
-
-					a->aabb.position[0] += va[0] * tfirst + dp * ny * delta_time;
-					a->aabb.position[1] += va[1] * tfirst + dp * nx * delta_time;
 				}
 			}
-
-			if (i == 0) {
-			}
 		}
 
-		if (!hit_static) {
-			a->aabb.position[0] += a->velocity[0] * delta_time;
-			a->aabb.position[1] += a->velocity[1] * delta_time;
-		}
-		
+		vec2 new_velocity = { a->velocity[0] * delta_time, a->velocity[1] * delta_time };
+		vec2_add(a->aabb.position, a->aabb.position, new_velocity);
 	}
 }
 
 static u32 next_body_index() {
 	u32 index = 0xdeadbeef;
 
-	for (u32 i = 0; i < MAX_BODIES; ++i) {
-		if (!physics_state.bodies[i].is_active) {
+	for (u32 i = 0; i < BODY_ARRAY_MAX; ++i) {
+		if (!physics_state.body_array[i].is_active) {
 			index = i;
 			break;
 		}
@@ -153,24 +149,60 @@ static u32 next_body_index() {
 	return index;
 }
 
-u32 physics_body_create(vec2 position, vec2 size, u8 is_static) {
+static u32 next_body_static_index() {
+	u32 index = 0xdeadbeef;
+
+	for (u32 i = 0; i < BODY_ARRAY_MAX; ++i) {
+		if (!physics_state.body_static_array[i].is_active) {
+			index = i;
+			break;
+		}
+	}
+
+	if (index == 0xdeadbeef) {
+		printf("No space for new static bodies! Exiting.\n");
+		exit(1);
+	}
+
+	return index;
+}
+
+u32 physics_body_create(vec2 position, vec2 size) {
 	u32 index = next_body_index();
 
-	Body *body = &physics_state.bodies[index];
+	Body *body = &physics_state.body_array[index];
 	body->aabb.position[0] = position[0];
 	body->aabb.position[1] = position[1];
 	body->aabb.half_size[0] = size[0] * 0.5;
 	body->aabb.half_size[1] = size[1] * 0.5;
 	body->is_active = 1;
-	body->is_static = is_static;
 	body->velocity[0] = 0;
 	body->velocity[1] = 0;
 
-	if (index > physics_state.body_max) {
-		physics_state.body_max = index;
+	if (index > physics_state.body_array_max) {
+		physics_state.body_array_max = index;
 	}
 
-	++physics_state.body_count;
+	++physics_state.body_array_count;
+
+	return index;
+}
+
+u32 physics_body_static_create(vec2 position, vec2 size) {
+	u32 index = next_body_static_index();
+
+	Body_Static *body = &physics_state.body_static_array[index];
+	body->aabb.position[0] = position[0];
+	body->aabb.position[1] = position[1];
+	body->aabb.half_size[0] = size[0] * 0.5;
+	body->aabb.half_size[1] = size[1] * 0.5;
+	body->is_active = 1;
+
+	if (index > physics_state.body_static_array_max) {
+		physics_state.body_static_array_max = index;
+	}
+
+	++physics_state.body_static_array_count;
 
 	return index;
 }
