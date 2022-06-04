@@ -17,6 +17,13 @@ Physics_State *physics_init() {
 	return &physics_state;
 }
 
+static void aabb_min_max(vec2 min, vec2 max, AABB aabb) {
+	min[0] = aabb.position[0] - aabb.half_size[0];
+	min[1] = aabb.position[1] - aabb.half_size[1];
+	max[0] = aabb.position[0] + aabb.half_size[0];
+	max[1] = aabb.position[1] + aabb.half_size[1];
+}
+
 static AABB aabb_minkowski(AABB a, AABB b) {
 	AABB r;
 
@@ -29,15 +36,15 @@ static AABB aabb_minkowski(AABB a, AABB b) {
 }
 
 static bool aabb_minkowski_intersect(AABB aabb) {
-	vec2 min = { aabb.position[0] - aabb.half_size[0], aabb.position[1] - aabb.half_size[1] };
-	vec2 max = { aabb.position[0] + aabb.half_size[0], aabb.position[1] + aabb.half_size[1] };
+	vec2 min, max;
+	aabb_min_max(min, max, aabb);
 
 	return (min[0] <= 0 && max[0] >= 0 && min[1] <= 0 && max[1] >= 0);
 }
 
 static void aabb_minkowski_penetration_vector(vec2 r, AABB aabb) {
-	vec2 min = { aabb.position[0] - aabb.half_size[0], aabb.position[1] - aabb.half_size[1] };
-	vec2 max = { aabb.position[0] + aabb.half_size[0], aabb.position[1] + aabb.half_size[1] };
+	vec2 min, max;
+	aabb_min_max(min, max, aabb);
 
 	f32 min_dist = fabsf(min[0]);
 	r[0] = min[0];
