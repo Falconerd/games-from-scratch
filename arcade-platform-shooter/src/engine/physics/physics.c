@@ -17,62 +17,47 @@ Physics_State *physics_init() {
 	return &physics_state;
 }
 
-u8 aabb_intersect_aabb(AABB a, AABB b) {
-	for (u8 i = 0; i < 2; ++i) {
-		if (a.position[i] + a.half_size[i] < b.position[i] - b.half_size[i] || a.position[i] - a.half_size[i] > b.position[i] + b.half_size[i]) {
-			return 0;
-		}
-	}
-	return 1;
+static AABB aabb_minkowski(AABB a, AABB b) {
+	AABB r;
+
+	r.position[0] = a.position[0] - b.position[0];
+	r.position[1] = a.position[1] - b.position[1];
+	r.half_size[0] = a.half_size[0] + b.half_size[0];
+	r.half_size[1] = a.half_size[1] + b.half_size[1];
+
+	return r;
 }
 
-u8 aabb_sweep_aabb(AABB a, AABB b, vec2 va, vec2 vb, f32 *tfirst, f32 *tlast, vec2 normal) {
-	f32 dx = a.position[0] - b.position[0];
-	f32 px = a.half_size[0] + b.half_size[0] - fabsf(dx);
-	f32 dy = a.position[1] - b.position[1];
-	f32 py = a.half_size[1] + b.half_size[1] - fabsf(dy);
+static bool aabb_minkowski_intersect(AABB aabb) {
+	vec2 min = { aabb.position[0] - aabb.half_size[0], aabb.position[1] - aabb.half_size[1] };
+	vec2 max = { aabb.position[0] + aabb.half_size[0], aabb.position[1] + aabb.half_size[1] };
 
-	normal[0] = px < py ? fsignf(a.position[0] - b.position[0]) : 0;
-	normal[1] = px >= py ? fsignf(a.position[1] - b.position[1]) : 0;
+	return (min[0] <= 0 && max[0] >= 0 && min[1] <= 0 && max[1] >= 0);
+}
 
-	if (aabb_intersect_aabb(a, b)) {
-		*tfirst = *tlast = 0;
-		return 1;
+static void aabb_minkowski_penetration_vector(vec2 r, AABB aabb) {
+	vec2 min = { aabb.position[0] - aabb.half_size[0], aabb.position[1] - aabb.half_size[1] };
+	vec2 max = { aabb.position[0] + aabb.half_size[0], aabb.position[1] + aabb.half_size[1] };
+
+	f32 min_dist = fabsf(min[0]);
+	r[0] = min[0];
+	r[1] = 0;
+
+	if (fabsf(max[0]) < min_dist) {
+		min_dist = max[0];
+		r[0] = max[0];
 	}
 
-	vec2 v;
-	vec2_sub(v, vb, va);
-
-	*tfirst = 0;
-	*tlast = 1;
-
-	vec2 amin, amax, bmin, bmax;
-	vec2_sub(amin, a.position, a.half_size);
-	vec2_sub(bmin, b.position, b.half_size);
-	vec2_add(amax, a.position, a.half_size);
-	vec2_add(bmax, b.position, b.half_size);
-
-	for (u8 i = 0; i < 2; ++i) {
-		if (v[i] < 0) {
-			if (bmax[i] < amin[i]) return 0;
-			if (amax[i] < bmin[i]) *tfirst = fmaxf((amax[i] - bmin[i]) / v[i], *tfirst);
-			if (bmax[i] > amin[i]) *tlast = fminf((amin[i] - bmax[i]) / v[i], *tlast);
-		}
-
-		if (v[i] > 0) {
-			if (bmin[i] > amax[i]) return 0;
-			if (bmax[i] < amin[i]) *tfirst = fmaxf((amin[i] - bmax[i]) / v[i], *tfirst);
-			if (amax[i] > bmin[i]) *tlast = fminf((amax[i] - bmin[i]) / v[i], *tlast);
-		}
-
-		if (v[i] == 0 && normal[i] != 0) {
-			return 0;
-		}
-
-		if (*tfirst > *tlast) return 0;
+	if (fabsf(min[1]) < min_dist) {
+		min_dist = min[1];
+		r[0] = 0;
+		r[1] = min[1];
 	}
 
-	return 1;
+	if (fabsf(max[1]) < min_dist) {
+		min_dist = max[1];
+		r[1] = max[1];
+	}
 }
 
 void physics_update(f32 delta_time) {
@@ -83,10 +68,12 @@ void physics_update(f32 delta_time) {
 			continue;
 		}
 
+/*
 		a->velocity[1] += GRAVITY;
 		if (TERMINAL_VELOCITY > a->velocity[1]) {
 			a->velocity[1] = TERMINAL_VELOCITY;
 		}
+		*/
 
 		vec2 scaled_velocity = { a->velocity[0] * delta_time, a->velocity[1] * delta_time };
 		a->is_grounded = false;
@@ -98,6 +85,17 @@ void physics_update(f32 delta_time) {
 				continue;
 			}
 
+			AABB r = aabb_minkowski(a->aabb, b->aabb);
+			render_aabb(&r, YELLOW);
+			vec2 pv;
+			aabb_minkowski_penetration_vector(pv, r);
+			render_line_segment((vec2){0, 0}, pv, RED);
+			if (aabb_minkowski_intersect(r)) {
+				render_line_segment((vec2){0, 0}, a->aabb.position, GREEN);
+				vec2_sub(a->aabb.position, a->aabb.position, pv);
+			}
+
+/*
 			f32 tfirst, tlast;
 			vec2 normal;
 
@@ -124,6 +122,7 @@ void physics_update(f32 delta_time) {
 					}
 				}
 			}
+			*/
 		}
 
 		vec2 new_velocity = { a->velocity[0] * delta_time, a->velocity[1] * delta_time };

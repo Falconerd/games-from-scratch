@@ -9,8 +9,8 @@
 
 #define BODY_ARRAY_MAX 256
 #define BODY_STATIC_ARRAY_MAX 32
-#define GRAVITY -20
-#define TERMINAL_VELOCITY -1000
+#define GRAVITY -200
+#define TERMINAL_VELOCITY -10000
 
 typedef struct physics_state Physics_State;
 

@@ -63,15 +63,16 @@ void render_aabb(void *aabb, vec4 color) {
 
 	f32 *pos = (f32*)aabb;
 	f32 *size = pos+2;
-	vec2 q;
-	vec2 r;
 
-	vec2_sub(q, pos, size);
-	vec2_scale(r, size, 2);
+	vec2 a = { pos[0] - size[0], pos[1] - size[1] };
+	vec2 b = { pos[0] + size[0], pos[1] - size[1] };
+	vec2 c = { pos[0] + size[0], pos[1] + size[1] };
+	vec2 d = { pos[0] - size[0], pos[1] + size[1] };
 
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	render_quad(q, r, color);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	render_line_segment(a, b, color);
+	render_line_segment(b, c, color);
+	render_line_segment(c, d, color);
+	render_line_segment(d, a, color);
 }
 
 void render_line_segment(vec2 start, vec2 end, vec4 color) {

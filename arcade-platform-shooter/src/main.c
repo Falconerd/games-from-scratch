@@ -41,16 +41,27 @@ static void handle_input(bool *quit) {
 		 velx -= 300;
 	}
 
-	if ((input_state->jump == KEY_STATE_PRESSED || input_state->jump == KEY_STATE_PRESSED) && body_player->is_grounded) {
-		vely = 700;
+	vely = 0;
+	if (input_state->jump == KEY_STATE_HELD || input_state->jump == KEY_STATE_PRESSED) {
+		 vely = 300;
 	}
+
+	if (input_state->shoot == KEY_STATE_HELD || input_state->shoot == KEY_STATE_PRESSED) {
+		 vely -= 300;
+	}
+
+/*
+	if ((input_state->jump == KEY_STATE_HELD || input_state->jump == KEY_STATE_PRESSED) && body_player->is_grounded) {
+		vely = 3000;
+	}
+	*/
 
 	body_player->velocity[0] = velx;
 	body_player->velocity[1] = vely;
 }
 
 static void render_update_begin() {
-	glClearColor(0, 0.2, 0.3, 1);
+	glClearColor(0, 0, 0, 1);
 	glClear(GL_COLOR_BUFFER_BIT);
 }
 
@@ -64,8 +75,8 @@ static void game_setup() {
 	player->body_id = physics_body_create((vec2){60, 500}, (vec2){50, 50});
 	body_player = &physics_state->body_array[player->body_id];
 
-	body_a = &physics_state->body_static_array[physics_body_static_create((vec2){100, 200}, (vec2){100, 50})];
-	body_b = &physics_state->body_static_array[physics_body_static_create((vec2){config_state->display_width*0.5, 70}, (vec2){config_state->display_width, 50})];
+	body_a = &physics_state->body_static_array[physics_body_static_create((vec2){config_state->display_width*0.5, config_state->display_height*0.5}, (vec2){100, 50})];
+	body_b = &physics_state->body_static_array[physics_body_static_create((vec2){config_state->display_width*0.5, 70}, (vec2){config_state->display_width*0.9, 50})];
 }
 
 int main(int argc, char *argv[]) {
@@ -103,6 +114,11 @@ int main(int argc, char *argv[]) {
 		render_aabb(&body_player->aabb, GREEN);
 		render_aabb(&body_a->aabb, WHITE);
 		render_aabb(&body_b->aabb, WHITE);
+
+/*
+		render_line_segment((vec2){153, 105}, (vec2){203, 155}, RED);
+		render_line_segment((vec2){0, 45}, (vec2){1920, 95}, PINK);
+*/
 
 		render_update_end(window);
 		time_late_update();

@@ -33,6 +33,7 @@ void input_update(u8 *keybinds) {
 
 	update_key_state(keyboard_state[keybinds[INPUT_KEY_LEFT]], &input_state.left);
 	update_key_state(keyboard_state[keybinds[INPUT_KEY_RIGHT]], &input_state.right);
+	update_key_state(keyboard_state[keybinds[INPUT_KEY_SHOOT]], &input_state.shoot);
 	update_key_state(keyboard_state[keybinds[INPUT_KEY_JUMP]], &input_state.jump);
 	update_key_state(keyboard_state[keybinds[INPUT_KEY_QUIT]], &input_state.quit);
 }

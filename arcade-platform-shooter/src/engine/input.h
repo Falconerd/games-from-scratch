@@ -32,6 +32,7 @@ typedef struct input_state {
 	Key_State right;
 	Key_State jump;
 	Key_State jump_last_frame;
+	Key_State shoot;
 	Key_State quit;
 	i32 mouse_x;
 	i32 mouse_y;
