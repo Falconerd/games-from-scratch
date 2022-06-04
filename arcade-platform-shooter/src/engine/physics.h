@@ -40,8 +40,6 @@ struct physics_state {
 	Body_Static *body_static_array;
 };
 
-u8 aabb_sweep_aabb(AABB a, AABB b, vec2 va, vec2 vb, f32 *tfirst, f32 *tlast, vec2 normal);
-
 Physics_State *physics_init(void);
 void physics_update(f32 delta_time);
 u32 physics_body_create(vec2 position, vec2 size);

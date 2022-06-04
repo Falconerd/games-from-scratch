@@ -35,14 +35,14 @@ static AABB aabb_minkowski(AABB a, AABB b) {
 	return r;
 }
 
-static bool aabb_minkowski_intersect(AABB aabb) {
+static bool aabb_intersect_aabb(AABB aabb) {
 	vec2 min, max;
 	aabb_min_max(min, max, aabb);
 
 	return (min[0] <= 0 && max[0] >= 0 && min[1] <= 0 && max[1] >= 0);
 }
 
-static void aabb_minkowski_penetration_vector(vec2 r, AABB aabb) {
+static void aabb_penetration_vector(vec2 r, AABB aabb) {
 	vec2 min, max;
 	aabb_min_max(min, max, aabb);
 
@@ -51,20 +51,24 @@ static void aabb_minkowski_penetration_vector(vec2 r, AABB aabb) {
 	r[1] = 0;
 
 	if (fabsf(max[0]) < min_dist) {
-		min_dist = max[0];
+		min_dist = fabsf(max[0]);
 		r[0] = max[0];
 	}
 
 	if (fabsf(min[1]) < min_dist) {
-		min_dist = min[1];
+		min_dist = fabsf(min[1]);
 		r[0] = 0;
 		r[1] = min[1];
 	}
 
 	if (fabsf(max[1]) < min_dist) {
-		min_dist = max[1];
+		r[0] = 0;
 		r[1] = max[1];
 	}
+}
+
+static bool aabb_sweep_aabb() {
+	return false;
 }
 
 void physics_update(f32 delta_time) {
@@ -94,10 +98,10 @@ void physics_update(f32 delta_time) {
 
 			AABB r = aabb_minkowski(a->aabb, b->aabb);
 			render_aabb(&r, YELLOW);
-			vec2 pv;
-			aabb_minkowski_penetration_vector(pv, r);
-			render_line_segment((vec2){0, 0}, pv, RED);
-			if (aabb_minkowski_intersect(r)) {
+
+			if (aabb_intersect_aabb(r)) {
+				vec2 pv;
+				aabb_penetration_vector(pv, r);
 				render_line_segment((vec2){0, 0}, a->aabb.position, GREEN);
 				vec2_sub(a->aabb.position, a->aabb.position, pv);
 			}
