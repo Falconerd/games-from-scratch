@@ -75,6 +75,10 @@ void render_aabb(void *aabb, vec4 color) {
 	render_line_segment(d, a, color);
 }
 
+void render_point(vec2 point, vec4 color) {
+	render_quad((vec2){point[0] - 1, point[1] - 1}, (vec2){2, 2}, color);
+}
+
 void render_line_segment(vec2 start, vec2 end, vec4 color) {
 	glUseProgram(shader_default);
 

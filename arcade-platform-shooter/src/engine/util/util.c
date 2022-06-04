@@ -16,3 +16,9 @@ float fmaxf(float a, float b) {
 	return b;
 }
 
+// https://stackoverflow.com/questions/427477/fastest-way-to-clamp-a-real-fixed-floating-point-value
+float fclampf(float x, float min, float max) {
+	const float t = x < min ? min : x;
+	return t > max ? max : t;
+}
+

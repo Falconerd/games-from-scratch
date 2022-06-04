@@ -40,10 +40,18 @@ struct physics_state {
 	Body_Static *body_static_array;
 };
 
+typedef struct hit {
+	f32 time;
+	vec2 normal;
+	vec2 delta;
+	vec2 position;
+} Hit;
+
 Physics_State *physics_init(void);
 void physics_update(f32 delta_time);
 u32 physics_body_create(vec2 position, vec2 size);
 u32 physic_body_static_create(vec2 position, vec2 size);
 
+bool segment_intersect_aabb(vec2 p, vec2 d, AABB aabb, Hit *hit);
 #endif
 

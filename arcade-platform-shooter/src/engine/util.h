@@ -6,6 +6,7 @@
 float fsignf(float x);
 float fminf(float a, float b);
 float fmaxf(float a, float b);
+float fclampf(float x, float min, float max);
 
 #define WHITE  (vec4){1, 1, 1, 1}
 #define RED    (vec4){1, 0, 0, 1}

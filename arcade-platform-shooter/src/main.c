@@ -25,6 +25,9 @@ static Body *body_player;
 static Body_Static *body_a;
 static Body_Static *body_b;
 
+	vec2 p0, p1;
+	Hit hit;
+
 static void handle_input(bool *quit) {
 	if (input_state->quit == KEY_STATE_PRESSED) {
 		*quit = true;
@@ -34,20 +37,26 @@ static void handle_input(bool *quit) {
 	f32 vely = body_player->velocity[1];
 
 	if (input_state->right == KEY_STATE_HELD || input_state->right == KEY_STATE_PRESSED) {
-		 velx += 300;
+		 velx += 1000;
 	}
 
 	if (input_state->left == KEY_STATE_HELD || input_state->left == KEY_STATE_PRESSED) {
-		 velx -= 300;
+		 velx -= 1000;
 	}
 
 	vely = 0;
 	if (input_state->jump == KEY_STATE_HELD || input_state->jump == KEY_STATE_PRESSED) {
-		 vely = 300;
+		 vely = 4000;
 	}
 
 	if (input_state->shoot == KEY_STATE_HELD || input_state->shoot == KEY_STATE_PRESSED) {
-		 vely -= 300;
+		 vely -= 4000;
+
+					vec2 d;
+					vec2_sub(d, p1, p0);
+					if (segment_intersect_aabb(p0, d, body_a->aabb, &hit)) {
+						printf("Hit! %.2f %.2f\n", hit.position[0], hit.position[1]);
+					}
 	}
 
 /*
@@ -103,6 +112,16 @@ int main(int argc, char *argv[]) {
 			if (e.type == SDL_QUIT) {
 				quit = true;
 			}
+
+			if (e.type == SDL_MOUSEBUTTONDOWN) {
+				if (e.button.button == SDL_BUTTON_LEFT) {
+					p0[0] = input_state->mouse_x;
+					p0[1] = config_state->display_height - input_state->mouse_y;
+				} else {
+					p1[0] = input_state->mouse_x;
+					p1[1] = config_state->display_height - input_state->mouse_y;
+				}
+			}
 		}
 
 		input_update(config_state->keybinds);
@@ -115,6 +134,10 @@ int main(int argc, char *argv[]) {
 		render_aabb(&body_a->aabb, WHITE);
 		render_aabb(&body_b->aabb, WHITE);
 
+		render_line_segment(p0, p1, YELLOW);
+
+		render_point(hit.position, GREEN);
+ 
 /*
 		render_line_segment((vec2){153, 105}, (vec2){203, 155}, RED);
 		render_line_segment((vec2){0, 45}, (vec2){1920, 95}, PINK);
