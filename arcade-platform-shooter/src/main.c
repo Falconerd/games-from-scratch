@@ -27,6 +27,8 @@ static Body_Static *body_b;
 
 	vec2 p0, p1;
 	Hit hit;
+	AABB test_aabb = {{ 0, 0 }, { 25, 25 }};
+	AABB hit_aabb = {{ 0, 0 }, { 25, 25 }};
 
 static void handle_input(bool *quit) {
 	if (input_state->quit == KEY_STATE_PRESSED) {
@@ -37,26 +39,28 @@ static void handle_input(bool *quit) {
 	f32 vely = body_player->velocity[1];
 
 	if (input_state->right == KEY_STATE_HELD || input_state->right == KEY_STATE_PRESSED) {
-		 velx += 1000;
+		velx += 1000;
 	}
 
 	if (input_state->left == KEY_STATE_HELD || input_state->left == KEY_STATE_PRESSED) {
-		 velx -= 1000;
+		velx -= 1000;
 	}
 
 	vely = 0;
 	if (input_state->jump == KEY_STATE_HELD || input_state->jump == KEY_STATE_PRESSED) {
-		 vely = 4000;
+		vely = 4000;
 	}
 
 	if (input_state->shoot == KEY_STATE_HELD || input_state->shoot == KEY_STATE_PRESSED) {
-		 vely -= 4000;
+		vely -= 4000;
 
-					vec2 d;
-					vec2_sub(d, p1, p0);
-					if (segment_intersect_aabb(p0, d, body_a->aabb, &hit)) {
-						printf("Hit! %.2f %.2f\n", hit.position[0], hit.position[1]);
-					}
+		vec2 d;
+		vec2_sub(d, p1, p0);
+		if (ray_intersect_aabb(p0, d, aabb_sum(body_a->aabb, test_aabb), &hit)) {
+			printf("Hit! %.2f %.2f\n", hit.position[0], hit.position[1]);
+			hit_aabb.position[0] = hit.position[0];
+			hit_aabb.position[1] = hit.position[1];
+		}
 	}
 
 /*
@@ -135,8 +139,16 @@ int main(int argc, char *argv[]) {
 		render_aabb(&body_b->aabb, WHITE);
 
 		render_line_segment(p0, p1, YELLOW);
+		test_aabb.position[0] = p0[0];
+		test_aabb.position[1] = p0[1];
+		render_aabb(&test_aabb, YELLOW);
+
+		AABB x = aabb_sum(body_a->aabb, test_aabb);
+		render_aabb(&x, (vec4){1, 1, 1, 0.5});
 
 		render_point(hit.position, GREEN);
+
+		render_aabb(&hit_aabb, GREEN);
  
 /*
 		render_line_segment((vec2){153, 105}, (vec2){203, 155}, RED);

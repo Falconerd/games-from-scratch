@@ -3,6 +3,7 @@
  * https://blog.hamaluik.ca/posts/simple-aabb-collision-using-minkowski-difference
  * https://github.com/pgkelley4/line-segments-intersect/blob/master/js/line-segments-intersect.js
  * https://www.youtube.com/watch?v=_g8DLrNyVsQ - Handmade Hero 50
+ * https://tavianator.com/2011/ray_box.html
  * Real-Time Collision Detection by Christer Ericson
  */
 #include <float.h>
@@ -32,11 +33,22 @@ static void aabb_min_max(vec2 min, vec2 max, AABB aabb) {
 	max[1] = aabb.position[1] + aabb.half_size[1];
 }
 
-static AABB aabb_minkowski(AABB a, AABB b) {
+AABB aabb_minkowski(AABB a, AABB b) {
 	AABB r;
 
 	r.position[0] = a.position[0] - b.position[0];
 	r.position[1] = a.position[1] - b.position[1];
+	r.half_size[0] = a.half_size[0] + b.half_size[0];
+	r.half_size[1] = a.half_size[1] + b.half_size[1];
+
+	return r;
+}
+
+AABB aabb_sum(AABB a, AABB b) {
+	AABB r;
+
+	r.position[0] = a.position[0];
+	r.position[1] = a.position[1];
 	r.half_size[0] = a.half_size[0] + b.half_size[0];
 	r.half_size[1] = a.half_size[1] + b.half_size[1];
 
@@ -75,121 +87,7 @@ static void aabb_penetration_vector(vec2 r, AABB aabb) {
 	}
 }
 
-static bool ray_intersect_aabb(vec2 p, vec2 d, AABB a, f32 *tmin, vec2 q) {
-	vec2 min, max;
-	aabb_min_max(min, max, a);
-
-	*tmin = 0;
-
-	f32 tmax = FLT_MAX;
-
-	for (u8 i = 0; i < 3; ++i) {
-		if (fabsf(d[i]) < FLT_EPSILON) {
-			if (p[i] < min[i] || p[i] > max[i]) return false;
-		} else {
-			f32 ood = 1 / d[i];
-			f32 t0 = (min[i] - p[i]) * ood;
-			f32 t1 = (max[i] - p[i]) * ood;
-			if (t0 > t1) {
-				f32 temp = t0;
-				t0 = t1;
-				t1 = temp;
-			}
-
-			if (t0 > *tmin) *tmin = t0;
-			if (t1 > tmax) tmax = t1;
-			if (*tmin > tmax) return false;
-		}
-	}
-
-	q[0] = p[0] + d[0] * *tmin;
-	q[1] = p[1] + d[1] * *tmin;
-
-	return true;
-}
-
-static f32 cross_product(vec2 a, vec2 b) {
-	return a[0] * b[1] - a[1] * b[0];
-}
-
-static bool equal_points(vec2 a, vec2 b) {
-	return a[0] == b[0] && a[1] == b[1];
-}
-
-static bool all_equal(u32 count, ...) {
-	va_list ap;
-	va_start(ap, count);
-	u32 first = va_arg(ap, u32);
-
-	for (u32 i = 0; i < count; ++i) {
-		if (va_arg(ap, u32) != first) {
-			return false;
-		}
-	}
-
-	va_end(ap);
-
-	return true;
-}
-
-static f32 rifofr(vec2 p, vec2 p2, vec2 q, vec2 q2) {
-	// does a->b intersect c->d?
-	vec2 r = { p2[0] - p[0], p2[1] - p[1] };
-	vec2 s = { q2[0] - q[0], q2[1] - q[1] };
-
-	vec2 qsubp = { q[0] - p[0], q[1] - p[1] };
-
-	f32 numerator = cross_product(qsubp, r);
-	f32 denominator = cross_product(r, s);
-
-	if (numerator == 0 && denominator == 0) {
-		return INFINITY;
-	}
-
-	if (denominator == 0) {
-		return INFINITY;
-	}
-
-	f32 u = numerator / denominator;
-	f32 t = cross_product(qsubp, s) / denominator;
-
-	if ((t >= 0) && (t <= 1) && (u >= 0) && (u <= 1)) {
-		return t;
-	}
-
-	return INFINITY;
-}
-
-static f32 ray_intersection_fraction(vec2 origin, vec2 magnitude, AABB aabb) {
-	vec2 end = { origin[0] + magnitude[0], origin[1] + magnitude[1] };
-
-	vec2 min, max;
-	aabb_min_max(min, max, aabb);
-
-	f32 min_t = rifofr(origin, end, (vec2){min[0], min[1]}, (vec2){min[0], max[1]});
-	f32 x = rifofr(origin, end, (vec2){min[0], max[1]}, (vec2){max[0], max[1]});
-	if (x < min_t) min_t = x;
-	x = rifofr(origin, end, (vec2){max[0], max[1]}, (vec2){max[0], min[1]});
-	if (x < min_t) min_t = x;
-	x = rifofr(origin, end, (vec2){max[0], min[1]}, (vec2){min[0], min[1]});
-	if (x < min_t) min_t = x;
-
-	return min_t;
-}
-
-static bool aabb_sweep_aabb(vec2 r, AABB a, AABB b, vec2 va, vec2 vb) {
-	vec2 v = { va[0] - vb[0], va[1] - vb[1] };
-
-	f32 h = ray_intersection_fraction((vec2){0, 0}, v, aabb_minkowski(a, b));
-
-	if (h < INFINITY) {
-		return true;
-	}
-
-	return false;
-}
-
-bool segment_intersect_aabb(vec2 p, vec2 d, AABB aabb, Hit *hit) {
+bool ray_intersect_aabb(vec2 p, vec2 d, AABB aabb, Hit *hit) {
 	vec2 scale = { 1 / d[0], 1 / d[1] };
 	vec2 sign = { fsignf(scale[0]), fsignf(scale[1]) };
 
@@ -214,7 +112,7 @@ bool segment_intersect_aabb(vec2 p, vec2 d, AABB aabb, Hit *hit) {
 		return false;
 	}
 
-	f32 time = fclampf(time_near, 0, 1);
+	hit->time = fclampf(time_near, 0, 1);
 
 	if (times_near[0] > times_near[1]) {
 		hit->normal[0] = -sign[0];
@@ -224,18 +122,15 @@ bool segment_intersect_aabb(vec2 p, vec2 d, AABB aabb, Hit *hit) {
 		hit->normal[1] = -sign[1];
 	}
 
-	hit->delta[0] = (1 - time) * -d[0];
-	hit->delta[1] = (1 - time) * -d[1];
-	hit->position[0] = p[0] + d[0] * time;
-	hit->position[1] = p[1] + d[1] * time;
+	hit->delta[0] = (1 - hit->time) * -d[0];
+	hit->delta[1] = (1 - hit->time) * -d[1];
+	hit->position[0] = p[0] + d[0] * hit->time;
+	hit->position[1] = p[1] + d[1] * hit->time;
 
 	return true;
 }
 
 void physics_update(f32 delta_time) {
-
-
-
 	for (u32 i = 0; i < physics_state.body_array_count; ++i) {
 		Body *a = &physics_state.body_array[i];
 
@@ -268,12 +163,17 @@ void physics_update(f32 delta_time) {
 				aabb_penetration_vector(pv, r);
 				render_line_segment((vec2){0, 0}, a->aabb.position, GREEN);
 				vec2_sub(a->aabb.position, a->aabb.position, pv);
-			} else {
-				f32 time;
-				vec2 q;
-				if (ray_intersect_aabb(a->aabb.position, scaled_velocity, b->aabb, &time, q)) {
-					printf("KEKW %.2f\n", time);
+			} else if (scaled_velocity[0] != 0 || scaled_velocity[1] != 0) {
+				AABB m = aabb_sum(b->aabb, a->aabb);
+
+				Hit hit;
+				if (ray_intersect_aabb(a->aabb.position, scaled_velocity, m, &hit)) {
+					printf("KEKW %.2f %2.f %2.f\n", hit.time, hit.position[0], hit.position[1]);
 					render_line_segment((vec2){0, 0}, a->aabb.position, PINK);
+					a->velocity[0] = 0;
+					a->velocity[1] = 0;
+					a->aabb.position[0] = hit.position[0];
+					a->aabb.position[1] = hit.position[1];
 				}
 				/*
 				vec2 v = { a->velocity[0], a->velocity[1] };
