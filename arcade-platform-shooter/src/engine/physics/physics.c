@@ -154,6 +154,103 @@ bool aabb_intersect_any_static(AABB a, u32 skip) {
 	return false;
 }
 
+void stationary_response(Body *a) {
+	for (u32 i = 0; i < physics_state.body_static_list->len; ++i) {
+		Body_Static *b = array_list_at(physics_state.body_static_list, i);
+
+		AABB c = aabb_minkowski(b->aabb, a->aabb);
+		vec2 min, max;
+		aabb_min_max(min, max, c);
+
+		if (min[0] <= 0 && max[0] >= 0 && min[1] <= 0 && max[1] >= 0) {
+			vec2 penetration_vector;
+			aabb_penetration_vector(penetration_vector, c);
+
+			a->aabb.position[0] += penetration_vector[0];
+			a->aabb.position[1] += penetration_vector[1];
+			vec2 x;
+			vec2_add(x, a->aabb.position, penetration_vector);
+			render_line_segment(a->aabb.position, x, GREEN);
+		}
+	}
+}
+
+// velocity is already scaled by delta time
+bool sweep_static(AABB aabb, vec2 velocity, Hit *sweep_hit) {
+	memset(sweep_hit, 0, sizeof(Hit));
+	sweep_hit->time = 0xBEEF; // Set to a large number, 2 would probably work as well.
+	Hit hit = {0};
+
+	for (u32 i = 0; i < physics_state.body_static_list->len; ++i) {
+		Body_Static *b = array_list_at(physics_state.body_static_list, i);
+
+		if (!b->is_active) continue;
+
+		if (ray_intersect_aabb(aabb.position, velocity, aabb_sum(b->aabb, aabb), &hit)) {
+			if (hit.time < sweep_hit->time) {
+				*sweep_hit = hit;
+			} else if (hit.time == sweep_hit->time) {
+				if (fabsf(velocity[0]) > fabsf(velocity[1])) {
+					if (hit.normal[0] != 0) {
+						*sweep_hit = hit;
+					}
+				} else if (fabsf(velocity[1]) > fabsf(velocity[0])) {
+					if (hit.normal[1] != 0) {
+						*sweep_hit = hit;
+					}
+				}
+			}
+		}
+	}
+
+	return sweep_hit->time != 0xBEEF;
+}
+
+void sweep_response(Body *a, vec2 vel) {
+	Hit h = {0};
+	sweep_static(a->aabb, vel, &h);
+
+	if (h.time != 0xBEEF) {
+		Hit h2 = {0};
+		printf("%.2f %.2f %.2f %.2f\n", h.delta[0], h.delta[1], h.position[0] - a->aabb.position[0], h.position[1] - a->aabb.position[1]);
+		sweep_static(a->aabb, (vec2){h.position[0] - a->aabb.position[0], h.position[1] - a->aabb.position[1]}, &h2);
+
+		if (h2.time != 0xBEEF) {
+			printf("->%.2f %.2f %.2f %.2f\n", h.delta[0], h.delta[1], h.position[0] - a->aabb.position[0], h.position[1] - a->aabb.position[1]);
+		}
+
+		a->aabb.position[0] = h.position[0];
+		a->aabb.position[1] = h.position[1];
+
+		if (h.normal[0] != 0) {
+			a->aabb.position[1] += vel[1];
+		}
+
+		if (h.normal[1] > 0) {
+			a->is_grounded = true;
+			a->aabb.position[0] += vel[0];
+		}
+
+		if (h.normal[1] < 0) {
+			if (vel[1] > 0) {
+				a->aabb.position[0] += vel[0];
+			}
+		}
+
+		render_line_segment((vec2){
+			a->aabb.position[0],
+			a->aabb.position[1]
+		}, (vec2){
+			a->aabb.position[0] + 50 * h.normal[0],
+			a->aabb.position[1] + 50 * h.normal[1]
+		}, (vec4){1, 1, 1, 1});
+	} else {
+		a->aabb.position[0] += vel[0];
+		a->aabb.position[1] += vel[1];
+	}
+}
+
+
 void physics_update(f32 delta_time) {
 	for (u32 i = 0; i < physics_state.body_list->len; ++i) {
 		Body *a = (Body*)array_list_at(physics_state.body_list, i);
@@ -167,83 +264,12 @@ void physics_update(f32 delta_time) {
 			a->velocity[1] = TERMINAL_VELOCITY;
 		}
 
-		vec2 scaled_velocity = { a->velocity[0] * delta_time, a->velocity[1] * delta_time };
 		a->is_grounded = false;
 
-		Hit hit = {0};
+		stationary_response(a);
 
-		vec2 starting_position = { a->aabb.position[0], a->aabb.position[1] };
-
-		for (u32 j = 0; j < physics_state.body_static_list->len; ++j) {
-			Body_Static *b = (Body_Static*)array_list_at(physics_state.body_static_list, j);
-
-			if (!b->is_active) {
-				continue;
-			}
-
-			if (scaled_velocity[0] == 0 && scaled_velocity[1] == 0) {
-				AABB c = aabb_minkowski(b->aabb, a->aabb);
-				vec2 min, max;
-				aabb_min_max(min, max, c);
-
-				if (min[0] <= 0 && max[0] >= 0 && min[1] <= 0 && max[1] >= 0) {
-					vec2 penetration_vector;
-					aabb_penetration_vector(penetration_vector, c);
-
-					a->aabb.position[0] += penetration_vector[0];
-					a->aabb.position[1] += penetration_vector[1];
-					vec2 x;
-					vec2_add(x, a->aabb.position, penetration_vector);
-					render_line_segment(a->aabb.position, x, GREEN);
-				}
-			}
-			else if (ray_intersect_aabb(a->aabb.position, scaled_velocity, aabb_sum(b->aabb, a->aabb), &hit)) {
-				// Need to check if this would put 'a' inside or through another body.
-				AABB tmp = a->aabb;
-				tmp.position[0] = hit.position[0];
-				tmp.position[1] = hit.position[1];
-
-				if (!aabb_intersect_any_static(tmp, j)) {
-					a->aabb.position[0] = hit.position[0];
-					a->aabb.position[1] = hit.position[1];
-				} else {
-					printf("That's a wrap %.2f %.2f\n", hit.position[0], hit.position[1]);
-					scaled_velocity[0] = 0;
-					scaled_velocity[1] = 0;
-					a->aabb.position[0] = starting_position[0];
-					a->aabb.position[1] = starting_position[1];
-				}
-
-				if (hit.normal[0] != 0) {
-					scaled_velocity[0] = 0;
-				}
-
-				if (hit.normal[1] > 0) {
-					a->is_grounded = true;
-					if (scaled_velocity[1] < 0) {
-						scaled_velocity[1] = 0;
-					}
-				}
-
-				if (hit.normal[1] < 0) {
-					if (scaled_velocity[1] > 0) {
-						scaled_velocity[1] = 0;
-					}
-				}
-
-				render_line_segment((vec2){
-					a->aabb.position[0] - a->aabb.half_size[0] * hit.normal[0],
-					a->aabb.position[1] - a->aabb.half_size[1] * hit.normal[1]
-				}, (vec2){
-					a->aabb.position[0] + a->aabb.half_size[0] * hit.normal[0],
-					a->aabb.position[1] + a->aabb.half_size[1] * hit.normal[1]
-				}, (vec4){0, 1, 0, 0.5});
-			}
-
-		}
-
-		a->aabb.position[0] += scaled_velocity[0];
-		a->aabb.position[1] += scaled_velocity[1];
+		vec2 scaled_velocity = { a->velocity[0] * delta_time, a->velocity[1] * delta_time };
+		sweep_response(a, scaled_velocity);
 
 		vec2 x;
 		vec2_scale(x, a->velocity, delta_time);

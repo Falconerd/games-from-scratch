@@ -58,7 +58,7 @@ static void handle_input(bool *quit) {
 	}
 
 	if (input_state->shoot == KEY_STATE_HELD || input_state->shoot == KEY_STATE_PRESSED) {
-		vely -= 800;
+		vely -= 3000;
 	}
 
 	body_player->velocity[0] = velx;
@@ -83,10 +83,10 @@ static void game_setup() {
 	body_player = array_list_at(physics_state->body_list, player->body_id);
 	body_player->is_active = true;
 
-	body_a = array_list_at(physics_state->body_static_list, physics_body_static_create((vec2){width*0.5, height*0.5}, (vec2){100, 50}));
-	body_b = array_list_at(physics_state->body_static_list, physics_body_static_create((vec2){width*0.5, 70}, (vec2){width*0.9, 50}));
-	body_c = array_list_at(physics_state->body_static_list, physics_body_static_create((vec2){70, height*0.5}, (vec2){50, height*0.9}));
-	body_d = array_list_at(physics_state->body_static_list, physics_body_static_create((vec2){width*0.5, height*0.5}, (vec2){50, height*0.9}));
+	body_a = array_list_at(physics_state->body_static_list, physics_body_static_create((vec2){width*0.5-25, height-25}, (vec2){width-50, 50}));
+	body_b = array_list_at(physics_state->body_static_list, physics_body_static_create((vec2){width-25, height*0.5+25}, (vec2){50, height-50}));
+	body_c = array_list_at(physics_state->body_static_list, physics_body_static_create((vec2){width*0.5+25, 25}, (vec2){width-50, 50}));
+	body_d = array_list_at(physics_state->body_static_list, physics_body_static_create((vec2){25, height*0.5-25}, (vec2){50, height-50}));
 
 	body_a->is_active = true;
 	body_b->is_active = true;
