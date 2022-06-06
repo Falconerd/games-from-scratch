@@ -52,7 +52,7 @@ void physics_update(f32 delta_time);
 u32 physics_body_create(vec2 position, vec2 size);
 u32 physic_body_static_create(vec2 position, vec2 size);
 
-bool ray_intersect_aabb(vec2 p, vec2 d, AABB aabb, Hit *hit);
+bool ray_intersect_aabb(vec2 position, vec2 magnitude, AABB aabb, Hit *hit);
 AABB aabb_sum(AABB a, AABB b);
 #endif
 
