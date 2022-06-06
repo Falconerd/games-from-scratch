@@ -13,6 +13,9 @@
 #define GRAVITY -200
 #define TERMINAL_VELOCITY -10000
 
+#define ITERATIONS 4
+#define TICK 1.0f / ITERATIONS
+
 typedef struct physics_state Physics_State;
 
 typedef struct aabb {

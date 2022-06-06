@@ -175,12 +175,15 @@ void stationary_response(Body *a) {
 	}
 }
 
-// velocity is already scaled by delta time
 bool sweep_static(AABB aabb, vec2 velocity, Hit *sweep_hit) {
 	memset(sweep_hit, 0, sizeof(Hit));
 	sweep_hit->time = 0xBEEF; // Set to a large number, 2 would probably work as well.
 	Hit hit = {0};
 
+	// Only hit the nearest object.
+	// This approach has its own issues - such as tunneling on inside corners when at high velocity.
+	// High velocity = velocity that would take the moving body > 50% through the static body.
+	// For most use-cases it should work fine, though.
 	for (u32 i = 0; i < physics_state.body_static_list->len; ++i) {
 		Body_Static *b = array_list_at(physics_state.body_static_list, i);
 
@@ -210,15 +213,7 @@ void sweep_response(Body *a, vec2 vel) {
 	Hit h = {0};
 	sweep_static(a->aabb, vel, &h);
 
-	if (h.time != 0xBEEF) {
-		Hit h2 = {0};
-		printf("%.2f %.2f %.2f %.2f\n", h.delta[0], h.delta[1], h.position[0] - a->aabb.position[0], h.position[1] - a->aabb.position[1]);
-		sweep_static(a->aabb, (vec2){h.position[0] - a->aabb.position[0], h.position[1] - a->aabb.position[1]}, &h2);
-
-		if (h2.time != 0xBEEF) {
-			printf("->%.2f %.2f %.2f %.2f\n", h.delta[0], h.delta[1], h.position[0] - a->aabb.position[0], h.position[1] - a->aabb.position[1]);
-		}
-
+	if (sweep_static(a->aabb, vel, &h)) {
 		a->aabb.position[0] = h.position[0];
 		a->aabb.position[1] = h.position[1];
 
@@ -266,10 +261,11 @@ void physics_update(f32 delta_time) {
 
 		a->is_grounded = false;
 
-		stationary_response(a);
-
-		vec2 scaled_velocity = { a->velocity[0] * delta_time, a->velocity[1] * delta_time };
-		sweep_response(a, scaled_velocity);
+		vec2 scaled_velocity = { a->velocity[0] * delta_time * TICK, a->velocity[1] * delta_time * TICK };
+		for (u32 j = 0; j < ITERATIONS; ++j) {
+			sweep_response(a, scaled_velocity);
+			stationary_response(a);
+		}
 
 		vec2 x;
 		vec2_scale(x, a->velocity, delta_time);
