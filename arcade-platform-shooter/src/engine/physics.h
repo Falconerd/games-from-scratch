@@ -6,9 +6,10 @@
 #include <stdbool.h>
 #include "../../deps/lib/linmath.h"
 #include "./types.h"
+#include "./array_list.h"
 
-#define BODY_ARRAY_MAX 256
-#define BODY_STATIC_ARRAY_MAX 32
+#define BODY_ARRAY_LENGTH 256
+#define BODY_STATIC_ARRAY_LENGTH 32
 #define GRAVITY -200
 #define TERMINAL_VELOCITY -10000
 
@@ -32,12 +33,8 @@ typedef struct body_static {
 } Body_Static;
 
 struct physics_state {
-	u32 body_array_count;
-	u32 body_array_max;
-	Body *body_array;
-	u32 body_static_array_count;
-	u32 body_static_array_max;
-	Body_Static *body_static_array;
+	Array_List *body_list;
+	Array_List *body_static_list;
 };
 
 typedef struct hit {

@@ -5,6 +5,7 @@
  * https://www.youtube.com/watch?v=_g8DLrNyVsQ - Handmade Hero 50
  * https://tavianator.com/2011/ray_box.html
  * https://tavianator.com/2015/ray_box_nan.html
+ * https://www.deengames.com/blog/2020/a-primer-on-aabb-collision-resolution.html
  * Real-Time Collision Detection by Christer Ericson
  */
 #include <float.h>
@@ -128,9 +129,34 @@ bool ray_intersect_aabb(vec2 position, vec2 magnitude, AABB aabb, Hit *hit) {
 	return tmax > tmin && tmax > 0 && tmin < 1;
 }
 
+f32 vec2_sqr_dist(vec2 a, vec2 b) {
+	f32 dx = a[0] - b[0];
+	f32 dy = a[1] - b[1];
+	return dy * dy + dx * dx;
+}
+
+bool aabb_intersect_any_static(AABB a, u32 skip) {
+	for (u32 i = 0; i < physics_state.body_static_list->len; ++i) {
+		Body_Static *b = (Body_Static*)array_list_at(physics_state.body_static_list, i);
+
+		if (skip == i) continue;
+		if (!b->is_active) continue;
+
+		AABB c = aabb_minkowski(b->aabb, a);
+		vec2 min, max;
+		aabb_min_max(min, max, c);
+
+		if (min[0] < 0 && max[0] > 0 && min[1] < 0 && max[1] > 0) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 void physics_update(f32 delta_time) {
-	for (u32 i = 0; i < physics_state.body_array_count; ++i) {
-		Body *a = &physics_state.body_array[i];
+	for (u32 i = 0; i < physics_state.body_list->len; ++i) {
+		Body *a = (Body*)array_list_at(physics_state.body_list, i);
 
 		if (!a->is_active) {
 			continue;
@@ -146,8 +172,10 @@ void physics_update(f32 delta_time) {
 
 		Hit hit = {0};
 
-		for (u32 j = 0; j < physics_state.body_static_array_count; ++j) {
-			Body_Static *b = &physics_state.body_static_array[j];
+		vec2 starting_position = { a->aabb.position[0], a->aabb.position[1] };
+
+		for (u32 j = 0; j < physics_state.body_static_list->len; ++j) {
+			Body_Static *b = (Body_Static*)array_list_at(physics_state.body_static_list, j);
 
 			if (!b->is_active) {
 				continue;
@@ -168,36 +196,50 @@ void physics_update(f32 delta_time) {
 					vec2_add(x, a->aabb.position, penetration_vector);
 					render_line_segment(a->aabb.position, x, GREEN);
 				}
-			} else if (ray_intersect_aabb(a->aabb.position, scaled_velocity, aabb_sum(b->aabb, a->aabb), &hit)) {
-				a->aabb.position[0] = hit.position[0];
-				a->aabb.position[1] = hit.position[1];
-
-					//}
-					if (hit.normal[0] != 0) {
-						scaled_velocity[0] = 0;
-					}
-
-					if (hit.normal[1] > 0) {
-						a->is_grounded = true;
-						if (scaled_velocity[1] < 0) {
-							scaled_velocity[1] = 0;
-						}
-					}
-
-					if (hit.normal[1] < 0) {
-						if (scaled_velocity[1] > 0) {
-							scaled_velocity[1] = 0;
-						}
-					}
-
-					render_line_segment((vec2){
-						a->aabb.position[0] - a->aabb.half_size[0] * hit.normal[0],
-						a->aabb.position[1] - a->aabb.half_size[1] * hit.normal[1]
-					}, (vec2){
-						a->aabb.position[0] + a->aabb.half_size[0] * hit.normal[0],
-						a->aabb.position[1] + a->aabb.half_size[1] * hit.normal[1]
-					}, (vec4){0, 1, 0, 0.5});
 			}
+			else if (ray_intersect_aabb(a->aabb.position, scaled_velocity, aabb_sum(b->aabb, a->aabb), &hit)) {
+				// Need to check if this would put 'a' inside or through another body.
+				AABB tmp = a->aabb;
+				tmp.position[0] = hit.position[0];
+				tmp.position[1] = hit.position[1];
+
+				if (!aabb_intersect_any_static(tmp, j)) {
+					a->aabb.position[0] = hit.position[0];
+					a->aabb.position[1] = hit.position[1];
+				} else {
+					printf("That's a wrap %.2f %.2f\n", hit.position[0], hit.position[1]);
+					scaled_velocity[0] = 0;
+					scaled_velocity[1] = 0;
+					a->aabb.position[0] = starting_position[0];
+					a->aabb.position[1] = starting_position[1];
+				}
+
+				if (hit.normal[0] != 0) {
+					scaled_velocity[0] = 0;
+				}
+
+				if (hit.normal[1] > 0) {
+					a->is_grounded = true;
+					if (scaled_velocity[1] < 0) {
+						scaled_velocity[1] = 0;
+					}
+				}
+
+				if (hit.normal[1] < 0) {
+					if (scaled_velocity[1] > 0) {
+						scaled_velocity[1] = 0;
+					}
+				}
+
+				render_line_segment((vec2){
+					a->aabb.position[0] - a->aabb.half_size[0] * hit.normal[0],
+					a->aabb.position[1] - a->aabb.half_size[1] * hit.normal[1]
+				}, (vec2){
+					a->aabb.position[0] + a->aabb.half_size[0] * hit.normal[0],
+					a->aabb.position[1] + a->aabb.half_size[1] * hit.normal[1]
+				}, (vec4){0, 1, 0, 0.5});
+			}
+
 		}
 
 		a->aabb.position[0] += scaled_velocity[0];
@@ -210,79 +252,31 @@ void physics_update(f32 delta_time) {
 	}
 }
 
-static u32 next_body_index() {
-	u32 index = 0xdeadbeef;
-
-	for (u32 i = 0; i < BODY_ARRAY_MAX; ++i) {
-		if (!physics_state.body_array[i].is_active) {
-			index = i;
-			break;
-		}
-	}
-
-	if (index == 0xdeadbeef) {
-		printf("No space for new bodies! Exiting.\n");
-		exit(1);
-	}
-
-	return index;
-}
-
-static u32 next_body_static_index() {
-	u32 index = 0xdeadbeef;
-
-	for (u32 i = 0; i < BODY_ARRAY_MAX; ++i) {
-		if (!physics_state.body_static_array[i].is_active) {
-			index = i;
-			break;
-		}
-	}
-
-	if (index == 0xdeadbeef) {
-		printf("No space for new static bodies! Exiting.\n");
-		exit(1);
-	}
-
-	return index;
-}
-
 u32 physics_body_create(vec2 position, vec2 size) {
-	u32 index = next_body_index();
+	Body body = {
+		.aabb = {
+			.position = { position[0], position[1] },
+			.half_size = { size[0] * 0.5, size[1] * 0.5 }
+		},
+		.velocity = { 0, 0 }
+	};
 
-	Body *body = &physics_state.body_array[index];
-	body->aabb.position[0] = position[0];
-	body->aabb.position[1] = position[1];
-	body->aabb.half_size[0] = size[0] * 0.5;
-	body->aabb.half_size[1] = size[1] * 0.5;
-	body->is_active = 1;
-	body->velocity[0] = 0;
-	body->velocity[1] = 0;
+	array_list_append(physics_state.body_list, &body);
 
-	if (index > physics_state.body_array_max) {
-		physics_state.body_array_max = index;
-	}
-
-	++physics_state.body_array_count;
-
-	return index;
+	return physics_state.body_list->len - 1;
 }
 
 u32 physics_body_static_create(vec2 position, vec2 size) {
-	u32 index = next_body_static_index();
+	Body_Static body_static = {
+		.aabb = {
+			.position = { position[0], position[1] },
+			.half_size = { size[0] * 0.5, size[1] * 0.5 }
+		},
 
-	Body_Static *body = &physics_state.body_static_array[index];
-	body->aabb.position[0] = position[0];
-	body->aabb.position[1] = position[1];
-	body->aabb.half_size[0] = size[0] * 0.5;
-	body->aabb.half_size[1] = size[1] * 0.5;
-	body->is_active = 1;
+	};
 
-	if (index > physics_state.body_static_array_max) {
-		physics_state.body_static_array_max = index;
-	}
+	array_list_append(physics_state.body_static_list, &body_static);
 
-	++physics_state.body_static_array_count;
-
-	return index;
+	return physics_state.body_static_list->len - 1;
 }
 

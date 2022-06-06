@@ -3,6 +3,9 @@
 #include <SDL2/SDL.h>
 #include <stdio.h>
 
+#include <assert.h>
+
+#include "engine/array_list.h"
 #include "engine/render.h"
 #include "engine/input.h"
 #include "engine/config.h"
@@ -25,6 +28,8 @@ static Body *body_player;
 static Body_Static *body_a;
 static Body_Static *body_b;
 static Body_Static *body_c;
+static Body_Static *body_d;
+static Body_Static *body_e;
 
 	vec2 p0, p1;
 	Hit hit;
@@ -40,35 +45,21 @@ static void handle_input(bool *quit) {
 	f32 vely = body_player->velocity[1];
 
 	if (input_state->right == KEY_STATE_HELD || input_state->right == KEY_STATE_PRESSED) {
-		velx += 6000;
+		velx += 8200;
 	}
 
 	if (input_state->left == KEY_STATE_HELD || input_state->left == KEY_STATE_PRESSED) {
-		velx -= 6000;
+		velx -= 800;
 	}
 
 	vely = 0;
 	if (input_state->jump == KEY_STATE_HELD || input_state->jump == KEY_STATE_PRESSED) {
-		vely = 7000;
+		vely = 1500;
 	}
 
 	if (input_state->shoot == KEY_STATE_HELD || input_state->shoot == KEY_STATE_PRESSED) {
-		vely -= 3000;
-
-		vec2 d;
-		vec2_sub(d, p1, p0);
-		if (ray_intersect_aabb(p0, d, aabb_sum(body_a->aabb, test_aabb), &hit)) {
-			printf("%.2f %.2f\n", hit.normal[0], hit.normal[1]);
-			hit_aabb.position[0] = hit.position[0];
-			hit_aabb.position[1] = hit.position[1];
-		}
+		vely -= 800;
 	}
-
-/*
-	if ((input_state->jump == KEY_STATE_HELD || input_state->jump == KEY_STATE_PRESSED) && body_player->is_grounded) {
-		vely = 3000;
-	}
-	*/
 
 	body_player->velocity[0] = velx;
 	body_player->velocity[1] = vely;
@@ -84,18 +75,27 @@ static void render_update_end(SDL_Window *window) {
 }
 
 static void game_setup() {
+	f32 width = config_state->display_width;
+	f32 height = config_state->display_height;
 	u32 player_index = entity_create();
 	player = &entity_state->entities[player_index];
 	player->body_id = physics_body_create((vec2){500, 500}, (vec2){50, 50});
-	body_player = &physics_state->body_array[player->body_id];
+	body_player = array_list_at(physics_state->body_list, player->body_id);
+	body_player->is_active = true;
 
-	body_a = &physics_state->body_static_array[physics_body_static_create((vec2){config_state->display_width*0.5, config_state->display_height*0.5}, (vec2){100, 50})];
-	body_b = &physics_state->body_static_array[physics_body_static_create((vec2){config_state->display_width*0.5, 70}, (vec2){config_state->display_width*0.9, 50})];
-	body_c = &physics_state->body_static_array[physics_body_static_create((vec2){70, config_state->display_height*0.5}, (vec2){50, config_state->display_height*0.9})];
+	body_a = array_list_at(physics_state->body_static_list, physics_body_static_create((vec2){width*0.5, height*0.5}, (vec2){100, 50}));
+	body_b = array_list_at(physics_state->body_static_list, physics_body_static_create((vec2){width*0.5, 70}, (vec2){width*0.9, 50}));
+	body_c = array_list_at(physics_state->body_static_list, physics_body_static_create((vec2){70, height*0.5}, (vec2){50, height*0.9}));
+	body_d = array_list_at(physics_state->body_static_list, physics_body_static_create((vec2){width*0.5, height*0.5}, (vec2){50, height*0.9}));
+
+	body_a->is_active = true;
+	body_b->is_active = true;
+	body_c->is_active = true;
+	body_d->is_active = true;
 }
 
 int main(int argc, char *argv[]) {
-	// Fix buffer not being flushed on print, for "print debugging".
+	// Fix buffer in Windows not being flushed on print, for "print debugging".
 	setvbuf(stdout, NULL, _IONBF, 0);
 
 	config_state = config_init();
@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
 		render_aabb(&body_a->aabb, WHITE);
 		render_aabb(&body_b->aabb, WHITE);
 		render_aabb(&body_c->aabb, WHITE);
-
+		render_aabb(&body_d->aabb, WHITE);
 		render_line_segment(p0, p1, YELLOW);
 		test_aabb.position[0] = p0[0];
 		test_aabb.position[1] = p0[1];
@@ -152,11 +152,6 @@ int main(int argc, char *argv[]) {
 		render_point(hit.position, GREEN);
 
 		render_aabb(&hit_aabb, GREEN);
- 
-/*
-		render_line_segment((vec2){153, 105}, (vec2){203, 155}, RED);
-		render_line_segment((vec2){0, 45}, (vec2){1920, 95}, PINK);
-*/
 
 		render_update_end(window);
 		time_late_update();
