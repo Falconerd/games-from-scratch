@@ -31,3 +31,7 @@ entity.o: ./src/engine/entity/entity.c
 
 clean:
 	@rm -rf ./*.o ./*.obj ./*.ilk ./*.pdb ./*.exe ./*.out
+
+test:
+	gcc ./src/engine/array_list/array_list.c ./test/test_all.c -o test_all.out
+

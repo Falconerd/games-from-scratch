@@ -6,4 +6,5 @@ a.exe
 main.exe
 *.ilk
 *.pdb
-
+*.out
+*.exe
