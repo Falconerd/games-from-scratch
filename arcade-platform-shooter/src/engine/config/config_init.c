@@ -41,16 +41,15 @@ static void load_controls() {
 	config_key_bind(INPUT_KEY_RIGHT, config_get_value("right"));
 	config_key_bind(INPUT_KEY_JUMP, config_get_value("jump"));
 	config_key_bind(INPUT_KEY_SHOOT, config_get_value("shoot"));
-	config_key_bind(INPUT_KEY_QUIT, config_get_value("quit"));
 }
 
-static void load_display(Config_State *config_state) {
-	config_state->display_width = (f32)atof(config_get_value("width"));
-	config_state->display_height = (f32)atof(config_get_value("height"));
-	config_state->framerate = (f32)atof(config_get_value("framerate"));
+static void load_display(Config *config_state) {
+	config_state->display_width = (float)atof(config_get_value("width"));
+	config_state->display_height = (float)atof(config_get_value("height"));
+	config_state->framerate = (float)atof(config_get_value("framerate"));
 }
 
-int config_init_load(Config_State *config_state) {
+int config_init_load(Config *config_state) {
 	config_buffer = io_file_read("./config.ini");
 	if (!config_buffer) {
 		return 1;
@@ -77,7 +76,6 @@ void config_init_create_default(void) {
 		"right = T\n"
 		"jump = F\n"
 		"shoot = E\n"
-		"quit = Escape\n"
 		"\n"
 		"[display]\n"
 		"width = 1920\n"

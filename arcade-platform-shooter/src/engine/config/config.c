@@ -3,9 +3,9 @@
 #include "config_internal.h"
 #include "../input.h"
 
-static Config_State config_state;
+static Config config_state;
 
-Config_State *config_init(void) {
+Config *config_init(void) {
 	if (config_init_load(&config_state) != 0) {
 		config_init_create_default();
 		config_init();

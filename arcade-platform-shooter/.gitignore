@@ -3,8 +3,3 @@
 a.out
 a.exe
 .vscode/
-main.exe
-*.ilk
-*.pdb
-*.out
-*.exe

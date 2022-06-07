@@ -13,7 +13,7 @@ char *io_file_read(const char *path) {
 
 	fseek(fp, 0, SEEK_END);
 
-	int length = ftell(fp);
+	ssize_t length = ftell(fp);
 
 	if (length == -1L) {
 		printf("Could not assertain length of file %s\n", path);
