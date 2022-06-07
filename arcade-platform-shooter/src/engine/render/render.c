@@ -21,7 +21,7 @@ static Character_Data character_data_array[128];
 static FT_Face face;
 static FT_GlyphSlot g;
 
-
+//TODO SCALE
 SDL_Window *render_init(f32 width, f32 height) {
 	SDL_Window *window = render_init_window(width, height);
 
@@ -30,7 +30,7 @@ SDL_Window *render_init(f32 width, f32 height) {
 	render_init_quad(&vao_quad, &vbo_quad, &ebo_quad);
 	render_init_line(&vao_line, &vbo_line);
 	render_init_color_texture(&texture_color);
-	render_init_text(&g, &face, character_data_array, &vao_text, &vbo_text);
+	render_init_text(&g, &face, character_data_array, &shader_text, &vao_text, &vbo_text, width, height, 1);
 
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_BLEND);

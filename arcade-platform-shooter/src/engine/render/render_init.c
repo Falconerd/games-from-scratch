@@ -104,7 +104,14 @@ void render_init_line(u32 *line_vao, u32 *line_vbo) {
 	glBindVertexArray(0);
 }
 
-void render_init_text(FT_GlyphSlot *g, FT_Face *face, Character_Data *character_data_array, u32 *vao, u32 *vbo) {
+void render_init_text(FT_GlyphSlot *g, FT_Face *face, Character_Data *character_data_array, u32 *shader, u32 *vao, u32 *vbo, f32 width, f32 height, f32 scale) {
+	*shader = render_shader_create("./shaders/text.vert", "./shaders/text.frag");
+	mat4x4 text_projection;
+	mat4x4_identity(text_projection);
+	mat4x4_ortho(text_projection, 0, width * scale, 0, height * scale, -2, 2);
+	glUseProgram(*shader);
+	glUniformMatrix4fv(glGetUniformLocation(*shader, "projection"), 1, GL_FALSE, &text_projection[0][0]);
+
 	// Init freetype library.
 	FT_Library ft;
 	if (FT_Init_FreeType(&ft)) {

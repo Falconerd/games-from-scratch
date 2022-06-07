@@ -146,6 +146,8 @@ int main(int argc, char *argv[]) {
 		test_aabb.position[1] = p0[1];
 		render_aabb(&test_aabb, YELLOW);
 
+		render_text("test", (vec2){200, 200}, WHITE, false);
+
 		AABB x = aabb_sum(body_a->aabb, test_aabb);
 		render_aabb(&x, (vec4){1, 1, 1, 0.5});
 
