@@ -16,10 +16,10 @@ static u32 vao_quad, vbo_quad, ebo_quad;
 static u32 vao_line, vbo_line;
 static u32 texture_color;
 
-static Character_Data character_data_array[128];
-
-static FT_Face face;
-static FT_GlyphSlot g;
+static Font font_array[2] = {
+	{ .path = "./assets/8-BIT_WONDER.TTF", .size = 24 },
+	{ .path = "./assets/PxPlus_IBM_VGA_8x16.ttf", .size = 16 },
+};
 
 //TODO SCALE
 SDL_Window *render_init(f32 width, f32 height) {
@@ -30,7 +30,10 @@ SDL_Window *render_init(f32 width, f32 height) {
 	render_init_quad(&vao_quad, &vbo_quad, &ebo_quad);
 	render_init_line(&vao_line, &vbo_line);
 	render_init_color_texture(&texture_color);
-	render_init_text(&g, &face, character_data_array, &shader_text, &vao_text, &vbo_text, width, height, 1);
+	FT_Library ft = render_init_text_begin(&shader_text, &vao_text, &vbo_text, width, height, 1);
+	render_init_font(&font_array[0], ft);
+	render_init_font(&font_array[1], ft);
+	render_init_text_end(ft);
 
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_BLEND);
@@ -105,10 +108,13 @@ void render_line_segment(vec2 start, vec2 end, vec4 color) {
 	glBindVertexArray(0);
 }
 
-void render_text(const char *text, vec2 pos, vec4 color, bool is_centered) {
+void render_text(const char *text, vec2 pos, vec4 color, bool is_centered, u32 font_id) {
 	glUseProgram(shader_text);
 	glUniform4fv(glGetUniformLocation(shader_text, "color"), 1, color);
 	glActiveTexture(GL_TEXTURE0);
+
+	Font *font = &font_array[font_id];
+
 	glBindVertexArray(vao_text);
 
 	// TODO
@@ -120,14 +126,14 @@ void render_text(const char *text, vec2 pos, vec4 color, bool is_centered) {
 		f32 width = 0;
 
 		for (const char *p = text; *p; ++p) {
-			width += character_data_array[(u32)*p].width;
+			width += font->character_data_array[(u32)*p].width;
 		}
 
 		x -= width * 0.5;
 	}
 
 	for (const char *p = text; *p; ++p) {
-		Character_Data cd = character_data_array[(u32)*p];
+		Character_Data cd = font->character_data_array[(u32)*p];
 
 		f32 x2 = x + cd.left;
 		f32 y2 = y - (cd.height - cd.top);

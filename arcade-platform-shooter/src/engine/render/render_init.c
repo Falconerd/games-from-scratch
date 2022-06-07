@@ -104,37 +104,18 @@ void render_init_line(u32 *line_vao, u32 *line_vbo) {
 	glBindVertexArray(0);
 }
 
-void render_init_text(FT_GlyphSlot *g, FT_Face *face, Character_Data *character_data_array, u32 *shader, u32 *vao, u32 *vbo, f32 width, f32 height, f32 scale) {
-	*shader = render_shader_create("./shaders/text.vert", "./shaders/text.frag");
-	mat4x4 text_projection;
-	mat4x4_identity(text_projection);
-	mat4x4_ortho(text_projection, 0, width * scale, 0, height * scale, -2, 2);
-	glUseProgram(*shader);
-	glUniformMatrix4fv(glGetUniformLocation(*shader, "projection"), 1, GL_FALSE, &text_projection[0][0]);
-
-	// Init freetype library.
-	FT_Library ft;
-	if (FT_Init_FreeType(&ft)) {
-		printf("Could not init freetype.\n");
+void render_init_font(Font *font, FT_Library ft) {
+	if (FT_New_Face(ft, font->path, 0, &font->face)) {
+		printf("Could not load font: %s. Exiting.\n", font->path);
 		exit(1);
 	}
 
-	// Load font face.
-	if (FT_New_Face(ft, "./assets/8-BIT_WONDER.TTF", 0, face)) {
-		printf("Could not load font.\n");
-		exit(1);
-	}
-
-	// TODO SCALE
-	//FT_Set_Pixel_Sizes(*face, 0, 12 * SCALE);
-	FT_Set_Pixel_Sizes(*face, 0, 24);
-
-	*g = (*face)->glyph;
+	FT_Set_Pixel_Sizes(font->face, 0, font->size);
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
 	for (u32 i = 0, n = 0; i < 128; ++i) {
-		if (FT_Load_Char(*face, i, FT_LOAD_RENDER)) {
+		if (FT_Load_Char(font->face, i, FT_LOAD_RENDER)) {
 			printf("Failed to load glyph '%c'\n", i);
 			continue;
 		}
@@ -146,12 +127,12 @@ void render_init_text(FT_GlyphSlot *g, FT_Face *face, Character_Data *character_
 			GL_TEXTURE_2D,
 			0,
 			GL_RED,
-			(*g)->bitmap.width,
-			(*g)->bitmap.rows,
+			font->face->glyph->bitmap.width,
+			font->face->glyph->bitmap.rows,
 			0,
 			GL_RED,
 			GL_UNSIGNED_BYTE,
-			(*g)->bitmap.buffer
+			font->face->glyph->bitmap.buffer
 		);
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -159,18 +140,33 @@ void render_init_text(FT_GlyphSlot *g, FT_Face *face, Character_Data *character_
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-		Character_Data *character_data = &character_data_array[n++];
+		Character_Data *character_data = &font->character_data_array[n++];
 		character_data->texture = texture;
-		character_data->advance_x = (*g)->advance.x;
-		character_data->advance_y = (*g)->advance.y;
-		character_data->width = (*g)->bitmap.width;
-		character_data->height = (*g)->bitmap.rows;
-		character_data->top = (*g)->bitmap_top;
-		character_data->left = (*g)->bitmap_left;
+		character_data->advance_x = font->face->glyph->advance.x;
+		character_data->advance_y = font->face->glyph->advance.y;
+		character_data->width = font->face->glyph->bitmap.width;
+		character_data->height = font->face->glyph->bitmap.rows;
+		character_data->top = font->face->glyph->bitmap_top;
+		character_data->left = font->face->glyph->bitmap_left;
 	}
 
-	FT_Done_Face(*face);
-	FT_Done_FreeType(ft);
+	FT_Done_Face(font->face);
+}
+
+FT_Library render_init_text_begin(u32 *shader, u32 *vao, u32 *vbo, f32 width, f32 height, f32 scale) {
+	*shader = render_shader_create("./shaders/text.vert", "./shaders/text.frag");
+	mat4x4 text_projection;
+	mat4x4_identity(text_projection);
+	mat4x4_ortho(text_projection, 0, width * scale, 0, height * scale, -2, 2);
+	glUseProgram(*shader);
+	glUniformMatrix4fv(glGetUniformLocation(*shader, "projection"), 1, GL_FALSE, &text_projection[0][0]);
+
+	// Init freetype library.
+	FT_Library ft;
+	if (FT_Init_FreeType(&ft)) {
+		printf("Could not initialize freetype. Exiting.\n");
+		exit(1);
+	}
 
 	glGenVertexArrays(1, vao);
 	glGenBuffers(1, vbo);
@@ -182,5 +178,10 @@ void render_init_text(FT_GlyphSlot *g, FT_Face *face, Character_Data *character_
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 
+	return ft;
+}
+
+void render_init_text_end(FT_Library ft) {
+	FT_Done_FreeType(ft);
 }
 
