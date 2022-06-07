@@ -13,7 +13,7 @@
 #define GRAVITY -200
 #define TERMINAL_VELOCITY -10000
 
-#define ITERATIONS 4
+#define ITERATIONS 10
 #define TICK 1.0f / ITERATIONS
 
 typedef struct physics_state Physics_State;
@@ -50,7 +50,7 @@ typedef struct hit {
 Physics_State *physics_init(void);
 void physics_update(f32 delta_time);
 u32 physics_body_create(vec2 position, vec2 size);
-u32 physic_body_static_create(vec2 position, vec2 size);
+u32 physics_body_static_create(vec2 position, vec2 size);
 
 bool ray_intersect_aabb(vec2 position, vec2 magnitude, AABB aabb, Hit *hit);
 AABB aabb_sum(AABB a, AABB b);

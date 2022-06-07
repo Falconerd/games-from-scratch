@@ -3,6 +3,8 @@
 
 #include <SDL2/SDL.h>
 #include <stdbool.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
 #include <freetype/freetype.h>
 #include "../../deps/lib/linmath.h"
 #include "../engine/types.h"
