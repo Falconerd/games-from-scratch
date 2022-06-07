@@ -17,4 +17,4 @@ io.o: ./src/engine/io/io.c
 	gcc $(FLAGS) -c $^
 
 clean:
-	@rm -rf ./a.exe a.out
+	@rm -rf ./*.exe ./*.out ./*.obj ./*.o ./*.ilk ./*.pdb

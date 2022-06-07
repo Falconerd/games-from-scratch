@@ -4,7 +4,7 @@
 #include "../config.h"
 #include "config_internal.h"
 #include "../input.h"
-#include "../util.h"
+#include "../../util.h"
 
 static char *config_buffer;
 static char *tmp_buffer;

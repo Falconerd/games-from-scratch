@@ -1,5 +1,7 @@
 *.o
 *.obj
-a.out
-a.exe
+*.out
+*.exe
+*.pdb
+*.ilk
 .vscode/
