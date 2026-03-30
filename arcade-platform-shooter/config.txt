@@ -1,4 +1,4 @@
-left = 21
-right = 23
-jump = 9
-shoot = 8
+left = 4
+right = 7
+jump = 44
+shoot = 14

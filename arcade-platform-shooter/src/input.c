@@ -10,7 +10,7 @@ void input_setup() {
 	if (!fp) {
 		state->left = SDL_SCANCODE_A;
 		state->right = SDL_SCANCODE_D;
-		state->jump = SDL_SCANCODE_W;
+		state->jump = SDL_SCANCODE_SPACE;
 		state->shoot = SDL_SCANCODE_K;
 	} else {
 		fscanf(fp, "left = %hhu\nright = %hhu\njump = %hhu\nshoot = %hhu\n", &state->left, &state->right, &state->jump, &state->shoot);
