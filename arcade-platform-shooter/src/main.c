@@ -425,11 +425,6 @@ static void reset() {
 	fire->is_kinematic = true;
 }
 
-// Fix double main in Windows.
-#ifdef main
-#undef main
-#endif
-
 int main(void) {
 	srand(time(NULL));
 
@@ -543,7 +538,7 @@ int main(void) {
 	reset();
 
 	state.previous_time = (f32)SDL_GetTicks();
-	
+
 	while (!state.should_quit) {
 		state.time_now = (f32)SDL_GetTicks();
 		state.delta_time = (state.time_now - state.time_last_frame) / 1000;

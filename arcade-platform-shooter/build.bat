@@ -1,10 +1,10 @@
 @echo off
 setlocal
 
-set CC=gcc
-set CFLAGS=-g3 -O0 -std=c99 -Wall -Wextra -pedantic
-set INCLUDES=-Ideps/include
-set LIBS=-lm -lSDL2 -lSDL2_mixer -lfreetype -mwindows
+set CC=cl
+set CFLAGS=/nologo /Zi /Od /TC /W4
+set INCLUDES=/Ideps/include
+set LIBS=SDL2.lib SDL2main.lib SDL2_mixer.lib opengl32.lib shell32.lib user32.lib gdi32.lib winmm.lib imm32.lib ole32.lib oleaut32.lib version.lib setupapi.lib
 set OUT=game.exe
 
 %CC% %CFLAGS% %INCLUDES% ^
@@ -21,8 +21,8 @@ set OUT=game.exe
     src/engine/config/config.c ^
     src/engine/config/config_init.c ^
     deps/src/glad.c ^
-    -o %OUT% ^
-    %LIBS%
+    /Fe:%OUT% ^
+    /link /LIBPATH:deps/lib %LIBS% /SUBSYSTEM:CONSOLE
 
 if %ERRORLEVEL% EQU 0 (
     echo Built %OUT%

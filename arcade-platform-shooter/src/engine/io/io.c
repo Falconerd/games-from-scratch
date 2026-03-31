@@ -28,8 +28,8 @@ char *io_file_read(const char *path) {
 		return NULL;
 	}
 
-	fread(buffer, sizeof(char), length, fp);
-	buffer[length] = 0;
+	size_t bytes_read = fread(buffer, sizeof(char), length, fp);
+	buffer[bytes_read] = 0;
 
 	fclose(fp);
 

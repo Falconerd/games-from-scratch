@@ -4,5 +4,6 @@
 *.exe
 *.pdb
 *.ilk
+*.rdi
 .vscode/
 game

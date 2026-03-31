@@ -6,26 +6,21 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "../deps/lib/stb_image.h"
 
-#include <ft2build.h>
-#include FT_FREETYPE_H
+#define STB_RECT_PACK_IMPLEMENTATION
+#include "stb_rect_pack.h"
+#define STB_TRUETYPE_IMPLEMENTATION
+#include "stb_truetype.h"
 
 Render_State render_state = {0};
 static Render_State *state = &render_state;
 
-typedef struct character_data {
-	u32 texture;
-	u32 advance_x;
-	u32 advance_y;
-	i32 width;
-	i32 height;
-	i32 left;
-	i32 top;
-} Character_Data;
+#define FONT_ATLAS_WIDTH 512
+#define FONT_ATLAS_HEIGHT 512
+#define FONT_FIRST_CHAR 32
+#define FONT_NUM_CHARS 96
 
-static Character_Data character_data_array[128];
-
-static FT_Face face;
-static FT_GlyphSlot g;
+static stbtt_bakedchar font_cdata[FONT_NUM_CHARS];
+static u32 font_atlas_texture;
 
 static void texture_setup(u32 texture_id);
 static u32 shader_setup(const char *vert_path, const char *frag_path);
@@ -141,61 +136,33 @@ void render_setup() {
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-	// Init freetype library.
-	FT_Library ft;
-	if (FT_Init_FreeType(&ft)) {
-		error_and_exit(EXIT_FAILURE, "Could not init freetype.");
-	}
-
-	// Load font face.
-	if (FT_New_Face(ft, "./assets/8-BIT_WONDER.TTF", 0, &face)) {
-		error_and_exit(EXIT_FAILURE, "Could not load font.");
-	}
-
-	FT_Set_Pixel_Sizes(face, 0, 12 * SCALE);
-
-	g = face->glyph;
-
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-	for (u32 i = 0, n = 0; i < 128; ++i) {
-		if (FT_Load_Char(face, i, FT_LOAD_RENDER)) {
-			printf("Failed to load glyph '%c'\n", i);
-			continue;
+	// Load font with stb_truetype.
+	{
+		FILE *font_file = fopen("./assets/8-BIT_WONDER.TTF", "rb");
+		if (!font_file) {
+			error_and_exit(EXIT_FAILURE, "Could not open font file.");
 		}
+		fseek(font_file, 0, SEEK_END);
+		long font_size = ftell(font_file);
+		fseek(font_file, 0, SEEK_SET);
+		unsigned char *font_buffer = malloc(font_size);
+		fread(font_buffer, 1, font_size, font_file);
+		fclose(font_file);
 
-		u32 texture;
-		glGenTextures(1, &texture);
-		glBindTexture(GL_TEXTURE_2D, texture);
-		glTexImage2D(
-			GL_TEXTURE_2D,
-			0,
-			GL_RED,
-			g->bitmap.width,
-			g->bitmap.rows,
-			0,
-			GL_RED,
-			GL_UNSIGNED_BYTE,
-			g->bitmap.buffer
-		);
+		unsigned char *atlas_bitmap = malloc(FONT_ATLAS_WIDTH * FONT_ATLAS_HEIGHT);
+		stbtt_BakeFontBitmap(font_buffer, 0, (f32)(12 * SCALE), atlas_bitmap, FONT_ATLAS_WIDTH, FONT_ATLAS_HEIGHT, FONT_FIRST_CHAR, FONT_NUM_CHARS, font_cdata);
+		free(font_buffer);
 
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+		glGenTextures(1, &font_atlas_texture);
+		glBindTexture(GL_TEXTURE_2D, font_atlas_texture);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, FONT_ATLAS_WIDTH, FONT_ATLAS_HEIGHT, 0, GL_RED, GL_UNSIGNED_BYTE, atlas_bitmap);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-		Character_Data *character_data = &character_data_array[n++];
-		character_data->texture = texture;
-		character_data->advance_x = g->advance.x;
-		character_data->advance_y = g->advance.y;
-		character_data->width = g->bitmap.width;
-		character_data->height = g->bitmap.rows;
-		character_data->top = g->bitmap_top;
-		character_data->left = g->bitmap_left;
+		free(atlas_bitmap);
 	}
-
-	FT_Done_Face(face);
-	FT_Done_FreeType(ft);
 
 	glGenVertexArrays(1, &state->text_vao);
 	glGenBuffers(1, &state->text_vbo);
@@ -305,38 +272,50 @@ void render_text(const char *text, f32 x, f32 y, vec4 color, u8 is_centered) {
 
 	if (is_centered) {
 		f32 width = 0;
-
+		f32 tmp_x = 0;
 		for (const char *p = text; *p; ++p) {
-			width += character_data_array[(u32)*p].width;
+			if (*p >= FONT_FIRST_CHAR && *p < FONT_FIRST_CHAR + FONT_NUM_CHARS) {
+				stbtt_aligned_quad q;
+				stbtt_GetBakedQuad(font_cdata, FONT_ATLAS_WIDTH, FONT_ATLAS_HEIGHT, *p - FONT_FIRST_CHAR, &tmp_x, &width, &q, 1);
+			}
 		}
-
-		x -= width * 0.5;
+		x -= tmp_x * 0.5f;
 	}
 
-	for (const char *p = text; *p; ++p) {
-		Character_Data cd = character_data_array[(u32)*p];
+	// stbtt uses top-down Y, our text projection is bottom-up (0 at bottom, HEIGHT*SCALE at top).
+	// stbtt_GetBakedQuad produces y0/y1 relative to a top-down baseline.
+	// We need to flip: gl_y = screen_height - stbtt_y
+	f32 screen_h = (f32)(HEIGHT * SCALE);
+	f32 baseline_x = x;
+	f32 baseline_y = 0; // stbtt baseline offset, we accumulate from 0
 
-		f32 x2 = x + cd.left;
-		f32 y2 = y - (cd.height - cd.top);
-		f32 w = cd.width;
-		f32 h = cd.height;
+	glBindTexture(GL_TEXTURE_2D, font_atlas_texture);
+
+	for (const char *p = text; *p; ++p) {
+		if (*p < FONT_FIRST_CHAR || *p >= FONT_FIRST_CHAR + FONT_NUM_CHARS)
+			continue;
+
+		stbtt_aligned_quad q;
+		stbtt_GetBakedQuad(font_cdata, FONT_ATLAS_WIDTH, FONT_ATLAS_HEIGHT, *p - FONT_FIRST_CHAR, &baseline_x, &baseline_y, &q, 1);
+
+		// Flip Y: convert top-down quad coords to bottom-up GL coords
+		f32 y0 = y + (screen_h - q.y1);
+		f32 y1 = y + (screen_h - q.y0);
 
 		f32 vertices[6][4] = {
-			{x2, y2 + h, 0, 0},
-			{x2, y2, 0, 1},
-			{x2 + w, y2, 1, 1},
+			{q.x0, y1, q.s0, q.t0},
+			{q.x0, y0, q.s0, q.t1},
+			{q.x1, y0, q.s1, q.t1},
 
-			{x2, y2 + h, 0, 0},
-			{x2 + w, y2, 1, 1},
-			{x2 + w, y2 + h, 1, 0}
+			{q.x0, y1, q.s0, q.t0},
+			{q.x1, y0, q.s1, q.t1},
+			{q.x1, y1, q.s1, q.t0}
 		};
 
-		glBindTexture(GL_TEXTURE_2D, cd.texture);
 		glBindBuffer(GL_ARRAY_BUFFER, state->text_vbo);
 		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof vertices, vertices);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
-		x += (cd.advance_x / 64);
 	}
 	glBindVertexArray(0);
 	glBindTexture(GL_TEXTURE_2D, 0);
